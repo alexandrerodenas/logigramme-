@@ -1,0 +1,11 @@
+# Godot
+.godot/
+/android/
+*.tmp
+
+# Exports et clés
+build/
+*.apk
+*.aab
+*.keystore
+*.jks

@@ -1,0 +1,433 @@
+class_name PuzzleGenerator
+extends RefCounted
+## Génère localement des logigrammes à solution unique, sans aucun accès réseau.
+## Une grille est déterminée par (difficulté, niveau) : le même niveau donne
+## toujours la même grille.
+
+enum ClueType { SAME, DIFF, EITHER, YOUNGER, EXACT }
+
+const DIFFICULTIES := [
+	{"name": "Facile", "cats": 3, "items": 4, "age_chance": 0.3},
+	{"name": "Moyen", "cats": 4, "items": 4, "age_chance": 0.6},
+	{"name": "Difficile", "cats": 4, "items": 5, "age_chance": 0.7},
+]
+
+const NAMES := ["Léa", "Hugo", "Chloé", "Louis", "Emma", "Jules", "Inès", "Lucas",
+	"Manon", "Nathan", "Camille", "Théo", "Zoé", "Arthur", "Jade", "Paul", "Alice", "Tom"]
+
+# Chaque valeur : [libellé court, prédicat, prédicat négatif]
+const CATEGORY_POOL := [
+	{"name": "Animal", "values": [
+		["chat", "a le chat", "n'a pas le chat"],
+		["chien", "a le chien", "n'a pas le chien"],
+		["lapin", "a le lapin", "n'a pas le lapin"],
+		["hamster", "a le hamster", "n'a pas le hamster"],
+		["perroquet", "a le perroquet", "n'a pas le perroquet"],
+		["poisson", "a le poisson rouge", "n'a pas le poisson rouge"],
+		["tortue", "a la tortue", "n'a pas la tortue"],
+	]},
+	{"name": "Boisson", "values": [
+		["thé", "boit du thé", "ne boit pas de thé"],
+		["café", "boit du café", "ne boit pas de café"],
+		["chocolat", "boit du chocolat chaud", "ne boit pas de chocolat chaud"],
+		["jus", "boit du jus d'orange", "ne boit pas de jus d'orange"],
+		["limonade", "boit de la limonade", "ne boit pas de limonade"],
+		["eau", "boit de l'eau", "ne boit pas d'eau"],
+	]},
+	{"name": "Maison", "values": [
+		["rouge", "habite la maison rouge", "n'habite pas la maison rouge"],
+		["bleue", "habite la maison bleue", "n'habite pas la maison bleue"],
+		["verte", "habite la maison verte", "n'habite pas la maison verte"],
+		["jaune", "habite la maison jaune", "n'habite pas la maison jaune"],
+		["blanche", "habite la maison blanche", "n'habite pas la maison blanche"],
+		["rose", "habite la maison rose", "n'habite pas la maison rose"],
+	]},
+	{"name": "Sport", "values": [
+		["tennis", "fait du tennis", "ne fait pas de tennis"],
+		["judo", "fait du judo", "ne fait pas de judo"],
+		["vélo", "fait du vélo", "ne fait pas de vélo"],
+		["natation", "fait de la natation", "ne fait pas de natation"],
+		["escalade", "fait de l'escalade", "ne fait pas d'escalade"],
+		["football", "fait du football", "ne fait pas de football"],
+	]},
+	{"name": "Ville", "values": [
+		["Paris", "vit à Paris", "ne vit pas à Paris"],
+		["Lyon", "vit à Lyon", "ne vit pas à Lyon"],
+		["Lille", "vit à Lille", "ne vit pas à Lille"],
+		["Nantes", "vit à Nantes", "ne vit pas à Nantes"],
+		["Nice", "vit à Nice", "ne vit pas à Nice"],
+		["Brest", "vit à Brest", "ne vit pas à Brest"],
+	]},
+	{"name": "Instrument", "values": [
+		["piano", "joue du piano", "ne joue pas du piano"],
+		["guitare", "joue de la guitare", "ne joue pas de la guitare"],
+		["violon", "joue du violon", "ne joue pas du violon"],
+		["batterie", "joue de la batterie", "ne joue pas de la batterie"],
+		["flûte", "joue de la flûte", "ne joue pas de la flûte"],
+		["harpe", "joue de la harpe", "ne joue pas de la harpe"],
+	]},
+]
+
+var rng := RandomNumberGenerator.new()
+var _perms: Array = []
+var _inv_perms: Array = []
+
+
+## Construit la grille du niveau `level` pour la difficulté `difficulty` (0, 1 ou 2).
+func generate(difficulty: int, level: int) -> Dictionary:
+	rng.seed = hash("logigramme-%d-%d" % [difficulty, level])
+	var cfg: Dictionary = DIFFICULTIES[difficulty]
+	var n_cats: int = cfg.cats
+	var n: int = cfg.items
+	var pz := {"difficulty": difficulty, "level": level, "n_cats": n_cats, "items": n, "age_cat": -1}
+
+	var cats: Array = []
+	cats.append(_make_names(n))
+	var with_age := rng.randf() < float(cfg.age_chance)
+	var pool := _shuffled(range(CATEGORY_POOL.size()))
+	var others := n_cats - 1 - (1 if with_age else 0)
+	for i in others:
+		cats.append(_make_category(CATEGORY_POOL[pool[i]], n))
+	if with_age:
+		var pos := 1 + rng.randi_range(0, n_cats - 2)
+		cats.insert(pos, _make_age(n))
+		pz.age_cat = pos
+	pz.cats = cats
+
+	# Solution : sol[c][e] = indice de la valeur de la catégorie c pour l'entité e.
+	var sol: Array = []
+	for c in n_cats:
+		sol.append(range(n) if c == 0 else _shuffled(range(n)))
+	pz.solution = sol
+
+	_prepare_perms(n)
+	var clues: Array = []
+	var texts := {}
+	var guard := 0
+	while guard < 400:
+		guard += 1
+		var clue := _random_clue(pz)
+		if clue.is_empty() or texts.has(clue.text):
+			continue
+		texts[clue.text] = true
+		clues.append(clue)
+		if clues.size() >= n_cats * 2 and count_solutions(pz, clues, 2) == 1:
+			break
+
+	# Retire les indices superflus tant que la solution reste unique.
+	var order := _shuffled(range(clues.size()))
+	var keep: Array = []
+	for i in clues.size():
+		keep.append(true)
+	for i in order:
+		keep[i] = false
+		var subset: Array = []
+		for j in clues.size():
+			if keep[j]:
+				subset.append(clues[j])
+		if count_solutions(pz, subset, 2) != 1:
+			keep[i] = true
+	var final_clues: Array = []
+	for j in clues.size():
+		if keep[j]:
+			final_clues.append(clues[j])
+	pz.clues = final_clues
+	return pz
+
+
+## Vrai si la valeur `va` de la catégorie `a` et la valeur `vb` de la catégorie `b`
+## appartiennent à la même personne dans la solution.
+static func is_match(pz: Dictionary, a: int, va: int, b: int, vb: int) -> bool:
+	var sol: Array = pz.solution
+	return sol[a].find(va) == sol[b].find(vb)
+
+
+# --- Catégories ---------------------------------------------------------------
+
+func _make_names(n: int) -> Dictionary:
+	var names := _shuffled(NAMES).slice(0, n)
+	names.sort()
+	var values: Array = []
+	for nm in names:
+		values.append({"short": nm, "pred": "est " + nm, "neg": "n'est pas " + nm, "desc": nm, "name": true})
+	return {"name": "Prénom", "values": values, "ordered": false}
+
+
+func _make_category(def: Dictionary, n: int) -> Dictionary:
+	var idx := _shuffled(range(def.values.size())).slice(0, n)
+	idx.sort()
+	var values: Array = []
+	for i in idx:
+		var v: Array = def.values[i]
+		values.append({"short": v[0], "pred": v[1], "neg": v[2], "desc": "la personne qui " + v[1]})
+	return {"name": def.name, "values": values, "ordered": false}
+
+
+func _make_age(n: int) -> Dictionary:
+	var step: int = [1, 2, 3, 5][rng.randi_range(0, 3)]
+	var base := rng.randi_range(18, 40)
+	var values: Array = []
+	for i in n:
+		var age := base + i * step
+		values.append({"short": "%d ans" % age, "pred": "a %d ans" % age, "neg": "n'a pas %d ans" % age,
+			"desc": "la personne de %d ans" % age})
+	return {"name": "Âge", "values": values, "ordered": true, "step": step}
+
+
+# --- Indices ------------------------------------------------------------------
+
+func _random_clue(pz: Dictionary) -> Dictionary:
+	var n: int = pz.items
+	var n_cats: int = pz.n_cats
+	var sol: Array = pz.solution
+	var g: int = pz.age_cat
+	var types := [ClueType.SAME, ClueType.DIFF, ClueType.DIFF, ClueType.DIFF, ClueType.EITHER, ClueType.EITHER]
+	if g >= 0:
+		types += [ClueType.YOUNGER, ClueType.YOUNGER, ClueType.EXACT]
+	if pz.difficulty == 0:
+		types.append(ClueType.SAME)
+	var t: int = types[rng.randi_range(0, types.size() - 1)]
+	var e1 := rng.randi_range(0, n - 1)
+	var e2 := (e1 + rng.randi_range(1, n - 1)) % n
+	var cl := {"type": t}
+	match t:
+		ClueType.SAME, ClueType.DIFF:
+			var pair := _two_cats(n_cats)
+			var e_b := e1 if t == ClueType.SAME else e2
+			cl.a = [pair[0], sol[pair[0]][e1]]
+			cl.b = [pair[1], sol[pair[1]][e_b]]
+			if cl.b[0] == 0:
+				var tmp = cl.a
+				cl.a = cl.b
+				cl.b = tmp
+		ClueType.EITHER:
+			var pair := _two_cats(n_cats)
+			if pair[1] == 0:
+				pair = [pair[1], pair[0]]
+			cl.a = [pair[0], sol[pair[0]][e1]]
+			var right := [pair[1], sol[pair[1]][e1]]
+			var wrong := [pair[1], sol[pair[1]][e2]]
+			if rng.randf() < 0.5:
+				cl.b = right
+				cl.c = wrong
+			else:
+				cl.b = wrong
+				cl.c = right
+		ClueType.YOUNGER, ClueType.EXACT:
+			if sol[g][e1] > sol[g][e2]:
+				var tmp := e1
+				e1 = e2
+				e2 = tmp
+			var ca := _cat_except(n_cats, g)
+			var cb := _cat_except(n_cats, g)
+			if t == ClueType.YOUNGER:
+				cl.a = [ca, sol[ca][e1]]
+				cl.b = [cb, sol[cb][e2]]
+			else:
+				cl.a = [ca, sol[ca][e2]]
+				cl.b = [cb, sol[cb][e1]]
+				cl.d = sol[g][e2] - sol[g][e1]
+			cl.g = g
+	cl.text = _clue_text(pz, cl)
+	return cl
+
+
+func _two_cats(n_cats: int) -> Array:
+	var a := rng.randi_range(0, n_cats - 1)
+	var b := (a + rng.randi_range(1, n_cats - 1)) % n_cats
+	return [a, b]
+
+
+func _cat_except(n_cats: int, g: int) -> int:
+	var c := rng.randi_range(0, n_cats - 2)
+	return c + 1 if c >= g else c
+
+
+func _val(pz: Dictionary, ref: Array) -> Dictionary:
+	return pz.cats[ref[0]].values[ref[1]]
+
+
+static func _cap(s: String) -> String:
+	return s.substr(0, 1).to_upper() + s.substr(1)
+
+
+static func _que(s: String) -> String:
+	if "AEIOUÉÈÊaeiouéèê".contains(s.substr(0, 1)):
+		return "qu'" + s
+	return "que " + s
+
+
+func _clue_text(pz: Dictionary, cl: Dictionary) -> String:
+	var a := _val(pz, cl.a)
+	var b := _val(pz, cl.b)
+	match int(cl.type):
+		ClueType.SAME:
+			return _cap(a.desc) + " " + b.pred + "."
+		ClueType.DIFF:
+			return _cap(a.desc) + " " + b.neg + "."
+		ClueType.EITHER:
+			var c := _val(pz, cl.c)
+			if b.has("name"):
+				return _cap(a.desc) + " est " + b.desc + " ou " + c.desc + "."
+			return _cap(a.desc) + " " + b.pred + " ou " + c.pred + "."
+		ClueType.YOUNGER:
+			return _cap(a.desc) + " est plus jeune " + _que(b.desc) + "."
+		ClueType.EXACT:
+			var years: int = int(cl.d) * int(pz.cats[cl.g].step)
+			var unit := "an" if years == 1 else "ans"
+			return _cap(a.desc) + " a exactement %d %s de plus " % [years, unit] + _que(b.desc) + "."
+	return ""
+
+
+# --- Solveur ------------------------------------------------------------------
+
+func _prepare_perms(n: int) -> void:
+	_perms = []
+	_permute(range(n), 0)
+	_inv_perms = []
+	for p in _perms:
+		var inv := PackedInt32Array()
+		inv.resize(n)
+		for e in n:
+			inv[p[e]] = e
+		_inv_perms.append(inv)
+
+
+func _permute(arr: Array, k: int) -> void:
+	if k == arr.size():
+		_perms.append(PackedInt32Array(arr))
+		return
+	for i in range(k, arr.size()):
+		var t = arr[k]
+		arr[k] = arr[i]
+		arr[i] = t
+		_permute(arr, k + 1)
+		arr[i] = arr[k]
+		arr[k] = t
+
+
+## Compte les solutions compatibles avec `clues`, en s'arrêtant à `cap`.
+func count_solutions(pz: Dictionary, clues: Array, cap: int) -> int:
+	var n_cats: int = pz.n_cats
+	var n: int = pz.items
+	if _perms.is_empty() or _perms[0].size() != n:
+		_prepare_perms(n)
+	var cats_of: Array = []
+	for cl in clues:
+		var cs := [cl.a[0], cl.b[0]]
+		if cl.has("c"):
+			cs.append(cl.c[0])
+		if cl.has("g"):
+			cs.append(cl.g)
+		cats_of.append(cs)
+
+	# Ordre de recherche : à chaque étape, la catégorie qui rend le plus d'indices vérifiables.
+	var placed := {0: true}
+	var order := [0]
+	while order.size() < n_cats:
+		var best := -1
+		var best_score := -1
+		for c in range(1, n_cats):
+			if placed.has(c):
+				continue
+			var score := 0
+			for cs in cats_of:
+				if cs.has(c) and cs.all(func(x): return x == c or placed.has(x)):
+					score += 1
+			if score > best_score:
+				best_score = score
+				best = c
+		placed[best] = true
+		order.append(best)
+
+	var buckets: Array = []
+	var candidates: Array = []
+	for k in n_cats:
+		buckets.append([])
+		candidates.append(range(_perms.size()))
+	for i in clues.size():
+		var cs: Array = cats_of[i]
+		var depth := 0
+		for x in cs:
+			depth = max(depth, order.find(x))
+		buckets[depth].append(clues[i])
+
+	var p: Array = []
+	var q: Array = []
+	p.resize(n_cats)
+	q.resize(n_cats)
+	p[0] = _perms[0]
+	q[0] = _inv_perms[0]
+
+	# Pré-filtrage : indices ne portant que sur la catégorie 0 et une autre.
+	for k in range(1, n_cats):
+		var c: int = order[k]
+		var local: Array = []
+		var rest: Array = []
+		for cl in buckets[k]:
+			var cs: Array = cats_of[clues.find(cl)]
+			if cs.all(func(x): return x == c or x == 0):
+				local.append(cl)
+			else:
+				rest.append(cl)
+		if local.is_empty():
+			continue
+		var kept: Array = []
+		for i in _perms.size():
+			p[c] = _perms[i]
+			q[c] = _inv_perms[i]
+			if local.all(func(cl): return _holds(cl, p, q)):
+				kept.append(i)
+		candidates[k] = kept
+		buckets[k] = rest
+
+	var state := {"count": 0}
+	_search(1, order, buckets, candidates, p, q, cap, state)
+	return state.count
+
+
+func _search(k: int, order: Array, buckets: Array, candidates: Array, p: Array, q: Array, cap: int, state: Dictionary) -> void:
+	if k == order.size():
+		state.count += 1
+		return
+	var c: int = order[k]
+	var bucket: Array = buckets[k]
+	for i in candidates[k]:
+		p[c] = _perms[i]
+		q[c] = _inv_perms[i]
+		var ok := true
+		for cl in bucket:
+			if not _holds(cl, p, q):
+				ok = false
+				break
+		if ok:
+			_search(k + 1, order, buckets, candidates, p, q, cap, state)
+			if state.count >= cap:
+				return
+
+
+static func _holds(cl: Dictionary, p: Array, q: Array) -> bool:
+	var ea: int = q[cl.a[0]][cl.a[1]]
+	var eb: int = q[cl.b[0]][cl.b[1]]
+	match int(cl.type):
+		ClueType.SAME:
+			return ea == eb
+		ClueType.DIFF:
+			return ea != eb
+		ClueType.EITHER:
+			return ea == eb or ea == q[cl.c[0]][cl.c[1]]
+		ClueType.YOUNGER:
+			return p[cl.g][ea] < p[cl.g][eb]
+		ClueType.EXACT:
+			return p[cl.g][ea] - p[cl.g][eb] == cl.d
+	return false
+
+
+func _shuffled(arr: Array) -> Array:
+	var out := arr.duplicate()
+	for i in range(out.size() - 1, 0, -1):
+		var j := rng.randi_range(0, i)
+		var t = out[i]
+		out[i] = out[j]
+		out[j] = t
+	return out
