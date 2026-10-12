@@ -30,11 +30,12 @@ vérifiée par un solveur avant d'être proposée.
   indice le grise.
 - Sons et musique synthétisés sur l'appareil, vibrations, sauvegarde automatique. Les réglages
   s'ouvrent depuis l'accueil et à tout moment en partie (roue dentée).
-- En partie, la grille reste fixe et seuls les indices défilent.
+- En partie, la grille reste fixe et seuls les indices défilent. Une grille pleine mais fausse
+  tremble, avec un son d'erreur et une vibration.
 
 ## Installer l'APK
 
-[Télécharger logigramme-2.3.2.apk](https://github.com/alexandrerodenas/logigramme-/raw/main/apk/logigramme-2.3.2.apk)
+[Télécharger logigramme-2.3.3.apk](https://github.com/alexandrerodenas/logigramme-/raw/main/apk/logigramme-2.3.3.apk)
 (dossier `apk/` du dépôt) depuis le téléphone, l'ouvrir, puis autoriser l'installation
 d'applications depuis cette source quand Android le demande.
 

@@ -5,6 +5,8 @@ extends Control
 
 signal changed
 signal solved
+## Toutes les pastilles sont posées mais la solution est fausse.
+signal wrong_complete
 signal marked(kind: int, cell: Array)
 
 const EMPTY := 0
@@ -39,6 +41,7 @@ var _font_bold: Font
 ## Taille unique de tout le texte de la grille (libellés, initiales, pastilles chiffrées), quel que soit le niveau.
 const FONT_SIZE := 18
 var _font_size := FONT_SIZE
+var _was_complete := false
 var _hover := Vector2i(-1, -1)
 var _anims := {}         # "a_b:idx" -> instant de départ (s)
 var _glow := {}          # "a_b:idx" -> instant de départ (s)
@@ -70,6 +73,7 @@ func setup(puzzle: Dictionary, saved_marks: Dictionary = {}) -> void:
 	_anims.clear()
 	_glow.clear()
 	is_solved = _check_solved()
+	_was_complete = is_complete()
 	_font = UI.font(500)
 	_font_bold = UI.font(600)
 	_relayout()
@@ -226,6 +230,29 @@ func _commit(action: Array) -> void:
 	if _check_solved():
 		is_solved = true
 		solved.emit()
+	else:
+		_check_complete()
+
+
+## Signale une seule fois le passage à « grille pleine mais fausse ».
+func _check_complete() -> void:
+	var full := is_complete()
+	if full and not _was_complete:
+		wrong_complete.emit()
+	_was_complete = full
+
+
+## Vrai quand chaque bloc a une pastille sur chacune de ses lignes.
+func is_complete() -> bool:
+	for k in marks:
+		var arr: PackedByteArray = marks[k]
+		var checks := 0
+		for m in arr:
+			if m == CHECK:
+				checks += 1
+		if checks < _n:
+			return false
+	return true
 
 
 func undo() -> bool:
@@ -239,6 +266,7 @@ func undo() -> bool:
 		marks[e[0]] = arr
 		_anims["%s:%d" % [e[0], e[1]]] = _time
 	errors.clear()
+	_was_complete = is_complete()
 	queue_redraw()
 	changed.emit()
 	return true

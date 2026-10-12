@@ -117,6 +117,7 @@ func _ready() -> void:
 	_grid.changed.connect(_on_grid_changed)
 	_grid.solved.connect(_on_solved)
 	_grid.marked.connect(_on_marked)
+	_grid.wrong_complete.connect(_on_wrong_complete.bind(card))
 	_grid.hide()
 	card.add_child(_grid)
 
@@ -362,6 +363,19 @@ func _on_marked(kind: int, cell: Array) -> void:
 		_:
 			Sfx.play("erase")
 	Sfx.buzz(12)
+
+
+## Grille pleine mais fausse : elle tremble, avec un son d'erreur et une vibration.
+func _on_wrong_complete(card: Control) -> void:
+	Sfx.play("error")
+	Sfx.buzz(220)
+	var x := card.position.x
+	var tw := create_tween()
+	for i in 4:
+		tw.tween_property(card, "position:x", x + 16, 0.05)
+		tw.tween_property(card, "position:x", x - 16, 0.05)
+	tw.tween_property(card, "position:x", x, 0.05)
+	main.toast("broken", "Il y a une erreur", "La grille est pleine, mais quelque chose cloche.")
 
 
 func _on_grid_changed() -> void:
