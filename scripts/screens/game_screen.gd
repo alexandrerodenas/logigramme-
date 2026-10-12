@@ -66,17 +66,18 @@ func _ready() -> void:
 	back_btn.pressed.connect(back)
 	top.add_child(back_btn)
 	var clear_btn := UI.button("", Color.WHITE, "broom", 28, UI.INK)
-	clear_btn.pressed.connect(_ask_clear)
+	clear_btn.pressed.connect(_clear)
 	top.add_child(clear_btn)
 	var title := HBoxContainer.new()
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.alignment = BoxContainer.ALIGNMENT_CENTER
 	title.add_theme_constant_override("separation", 8)
 	top.add_child(title)
-	var w_def: Dictionary = Worlds.WORLDS[world]
 	var boss: bool = cfg.get("boss", false)
-	title.add_child(UI.icon_rect("calendar" if cfg.get("daily", false) else ("crown" if boss else w_def.icon), 44))
-	var t_text := "Défi du jour" if cfg.get("daily", false) else ("Grande énigme" if boss else "Niveau %d" % cfg.level)
+	# Titre court : la barre porte aussi le balai et la roue des réglages.
+	if cfg.get("daily", false) or boss:
+		title.add_child(UI.icon_rect("calendar" if cfg.get("daily", false) else "crown", 44))
+	var t_text := "Défi" if cfg.get("daily", false) else ("Énigme" if boss else "Niveau %d" % cfg.level)
 	var t_lbl := UI.label(t_text, 30, UI.INK, 700)
 	t_lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	t_lbl.clip_text = true
@@ -87,6 +88,9 @@ func _ready() -> void:
 	_coins = UI.pill("coin", str(Game.coins()))
 	top.add_child(_coins)
 	Game.coins_changed.connect(func(v): UI.set_pill(_coins, str(v)))
+	var gear := UI.button("", Color.WHITE, "gear", 28, UI.INK)
+	gear.pressed.connect(func(): main.settings())
+	top.add_child(gear)
 
 	_progress = ProgressBar.new()
 	_progress.show_percentage = false
@@ -495,7 +499,7 @@ func _shake(c: Control) -> void:
 func _tutorial() -> void:
 	var steps := [
 		["detective", "Ta première enquête", "Chaque habitant a exactement une valeur dans chaque catégorie, et jamais la même qu'un autre. À toi de trouver qui va avec quoi grâce aux indices."],
-		["puzzle", "La grille", "Touche une case une fois pour une croix (impossible), deux fois pour une pastille verte (c'est bien ça !), trois fois pour un « ? » (une piste à creuser, comptée comme vide), quatre fois pour la vider. Une pastille barre le reste de sa ligne et de sa colonne, et une seule pastille est permise par ligne et par colonne d'un bloc. Le balai efface toute la grille."],
+		["puzzle", "La grille", "Touche une case une fois pour une croix (impossible), deux fois pour une pastille verte (c'est bien ça !), trois fois pour un « ? » (une piste à creuser, comptée comme vide), quatre fois pour la vider. Tu poses toi-même chaque croix, et une seule pastille est permise par ligne et par colonne d'un bloc. Le balai efface toute la grille, la roue dentée ouvre les réglages."],
 		["coin", "Étoiles et pièces", "Résous vite et sans aide pour gagner 3 étoiles. Les pièces gagnées servent à acheter des aides quand tu bloques."],
 	]
 	_tutorial_step(steps, 0)
@@ -832,15 +836,14 @@ func _show_queue(queue: Array, i: int) -> void:
 	main.message(q[0], q[1], q[2], [["Compris !", UI.CORAL, func(): _show_queue(queue, i + 1)]], false)
 
 
-## Efface toutes les marques et les indices rayés pour repartir de zéro (annulable).
-func _ask_clear() -> void:
+## Efface toutes les marques et les indices rayés pour repartir de zéro, sans confirmation
+## (le bouton « annuler » ramène la grille).
+func _clear() -> void:
 	if puzzle.is_empty() or finished:
 		return
-	main.message("broom", "Effacer la grille ?", "Toutes tes marques et les indices rayés seront retirés. Le chrono, les cœurs et les clés ne changent pas.",
-		[["Garder", UI.SKY], ["Effacer", UI.CORAL, func():
-			_grid.clear_all()
-			struck.clear()
-			for i in _clue_nodes:
-				_render_clue(i, true)
-			Sfx.play("whoosh")
-			_save_progress()]])
+	_grid.clear_all()
+	struck.clear()
+	for i in _clue_nodes:
+		_render_clue(i, true)
+	Sfx.play("whoosh")
+	_save_progress()

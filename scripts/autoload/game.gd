@@ -61,7 +61,7 @@ func _default() -> Dictionary:
 		"daily": {"last": "", "streak": 0},
 		"stats": {"solved": 0, "three_star": 0, "no_aid": 0, "fast": 0, "daily_done": 0, "best_streak": 0},
 		"achievements": {},
-		"settings": {"sound": true, "music": true, "vibration": true},
+		"settings": {"sound": true, "music": true, "vibration": true, "auto_cross": false},
 		"tutorial": false, "seen_aids": {}, "seen_worlds": {"0": true}, "seen_intros": {},
 	}
 
@@ -349,8 +349,12 @@ func daily_streak() -> int:
 
 # --- Réglages -----------------------------------------------------------------
 
+## Valeur par défaut des réglages absents de la sauvegarde.
+const SETTING_DEFAULTS := {"sound": true, "music": true, "vibration": true, "auto_cross": false}
+
+
 func setting(id: String) -> bool:
-	return bool(data.settings.get(id, true))
+	return bool(data.settings.get(id, SETTING_DEFAULTS.get(id, true)))
 
 
 func set_setting(id: String, v: bool) -> void:

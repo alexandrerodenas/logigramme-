@@ -231,40 +231,4 @@ func _daily_card() -> Control:
 
 
 func _settings() -> void:
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 14)
-	var t := UI.label("Réglages", 44, UI.INK, 700)
-	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(t)
-	for spec in [["sound", "Sons", "sound"], ["music", "Musique", "music"], ["vibration", "Vibrations", "phone"]]:
-		var id: String = spec[0]
-		var b := UI.button("", UI.MINT if Game.setting(id) else UI.GREY, spec[2], 28)
-		var refresh := func():
-			b.text = "%s : %s" % [spec[1], "oui" if Game.setting(id) else "non"]
-			var col: Color = UI.MINT if Game.setting(id) else Color("b9adc4")
-			for st in ["normal", "hover", "pressed"]:
-				var sb: StyleBoxFlat = b.get_theme_stylebox(st)
-				sb.bg_color = col
-				sb.border_color = col.darkened(0.25)
-		refresh.call()
-		b.pressed.connect(func():
-			Game.set_setting(id, not Game.setting(id))
-			refresh.call()
-			Sfx.update_music())
-		box.add_child(b)
-	var reset := UI.button("Recommencer à zéro", UI.CORAL, "broom", 26)
-	reset.pressed.connect(func():
-		main.close_popup()
-		main.message("broom", "Tout effacer ?", "Étoiles, pièces, trophées et progression seront perdus.",
-			[["Annuler", UI.SKY], ["Effacer", UI.CORAL, func():
-				Game.reset()
-				main.go("home")]]))
-	box.add_child(reset)
-	var credits := UI.label("Icônes Twemoji (CC BY 4.0, Twitter et contributeurs) · Police Fredoka (SIL OFL) · Fait avec Godot", 18, UI.INK_SOFT)
-	credits.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	credits.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(credits)
-	var ok := UI.button("Fermer", UI.SKY)
-	ok.pressed.connect(main.close_popup)
-	box.add_child(ok)
-	main.popup(box)
+	main.settings(true)

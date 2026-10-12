@@ -23,10 +23,13 @@ vérifiée par un solveur avant d'être proposée.
   indices simples). Loupe et Éclair se débloquent au fil du Jardin.
 - **Rangs** d'Apprenti à Légende grâce à l'expérience, **22 trophées**, **défi du jour** avec série.
 - Un appui sur une case : croix (impossible), puis pastille verte (certain), puis « ? » (piste
-  personnelle, comptée comme vide), puis vide. Une pastille barre le reste de sa ligne et de sa
-  colonne ; une seule pastille par ligne et par colonne d'un bloc (la précédente est retirée).
-  Le balai efface toute la grille (annulable). Un appui sur un indice le grise.
-- Sons et musique synthétisés sur l'appareil, vibrations, réglages, sauvegarde automatique.
+  personnelle, comptée comme vide), puis vide. Remplissage manuel : le joueur pose lui-même
+  chaque croix (l'option « Croix automatiques » fait barrer la ligne et la colonne d'une pastille).
+  Une seule pastille par ligne et par colonne d'un bloc (la précédente est retirée).
+  Le balai efface toute la grille sans confirmation (le bouton Annuler la ramène). Un appui sur un
+  indice le grise.
+- Sons et musique synthétisés sur l'appareil, vibrations, sauvegarde automatique. Les réglages
+  s'ouvrent depuis l'accueil et à tout moment en partie (roue dentée).
 
 ## Installer l'APK
 

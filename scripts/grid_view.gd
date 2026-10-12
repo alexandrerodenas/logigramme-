@@ -184,7 +184,8 @@ func _tap(hit: Array) -> void:
 				old.append([rv, v])
 			if v != rv and get_mark(rc, v, cc, cv) == CHECK:
 				old.append([v, cv])
-		_exclude(rc, rv, cc, cv, action)
+		if Game.setting("auto_cross"):
+			_exclude(rc, rv, cc, cv, action)
 		for o in old:
 			_set_mark(rc, o[0], cc, o[1], EMPTY, action)
 	_hover = Vector2i(hit[4] * _n + rv, hit[5] * _n + cv)
@@ -192,7 +193,7 @@ func _tap(hit: Array) -> void:
 	marked.emit(nxt, [rc, rv, cc, cv])
 
 
-## Un ✓ exclut le reste de sa ligne et de sa colonne dans ce bloc.
+## Option « croix automatiques » : un ✓ exclut le reste de sa ligne et de sa colonne dans ce bloc.
 func _exclude(rc: int, rv: int, cc: int, cv: int, action: Array) -> void:
 	for v in _n:
 		if v != cv and is_blank(get_mark(rc, rv, cc, v)):
