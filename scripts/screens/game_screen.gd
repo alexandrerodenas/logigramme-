@@ -102,16 +102,6 @@ func _ready() -> void:
 	if not mods.is_empty():
 		col.add_child(_mod_bar())
 
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
-	col.add_child(scroll)
-	_content = VBoxContainer.new()
-	_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_content.add_theme_constant_override("separation", 12)
-	scroll.add_child(_content)
-
 	var card := PanelContainer.new()
 	var sb := UI.box(Color(1, 1, 1, 0.92), 28)
 	sb.set_content_margin_all(10)
@@ -119,7 +109,8 @@ func _ready() -> void:
 	sb.shadow_size = 10
 	sb.shadow_offset = Vector2(0, 5)
 	card.add_theme_stylebox_override("panel", sb)
-	_content.add_child(card)
+	# La grille reste fixe : seuls les indices défilent, dans leur propre zone.
+	col.add_child(card)
 	_grid = GridView.new()
 	_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_grid.accent = Worlds.color(world, "accent")
@@ -148,7 +139,16 @@ func _ready() -> void:
 	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	head.add_child(hint)
-	_content.add_child(head)
+	col.add_child(head)
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	col.add_child(scroll)
+	_content = VBoxContainer.new()
+	_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_content.add_theme_constant_override("separation", 12)
+	scroll.add_child(_content)
 	_clue_box = VBoxContainer.new()
 	_clue_box.add_theme_constant_override("separation", 8)
 	_content.add_child(_clue_box)
