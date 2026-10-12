@@ -242,12 +242,13 @@ func _check_complete() -> void:
 	_was_complete = full
 
 
-## Vrai quand chaque bloc a une pastille sur chacune de ses lignes.
+## Vrai quand chaque habitant a une pastille dans chaque bloc de la première ligne.
 func is_complete() -> bool:
 	for k in marks:
-		var arr: PackedByteArray = marks[k]
+		if not String(k).begins_with("0_"):
+			continue
 		var checks := 0
-		for m in arr:
+		for m in marks[k]:
 			if m == CHECK:
 				checks += 1
 		if checks < _n:
@@ -385,30 +386,35 @@ func apply_simple_clues() -> int:
 	return n
 
 
+## Gagné quand toutes les pastilles posées sont justes et que chaque habitant a sa pastille
+## dans chaque bloc de la première ligne : cela fixe toute la solution, inutile de remplir
+## les autres blocs ni de poser les croix.
 func _check_solved() -> bool:
+	if not is_complete():
+		return false
 	for k in marks:
 		var ab: PackedStringArray = k.split("_")
 		var a := int(ab[0])
 		var b := int(ab[1])
 		var arr: PackedByteArray = marks[k]
 		for i in arr.size():
-			var ok := PuzzleGenerator.is_match(pz, a, i / _n, b, i % _n)
-			if ok != (arr[i] == CHECK):
+			if arr[i] == CHECK and not PuzzleGenerator.is_match(pz, a, i / _n, b, i % _n):
 				return false
 	return true
 
 
-## Part de cases remplies (0 à 1), pour la barre de progression.
+## Avancement (0 à 1) : pastilles posées dans les blocs de la première ligne.
 func fill_ratio() -> float:
 	var total := 0
-	var filled := 0
+	var checks := 0
 	for k in marks:
-		var arr: PackedByteArray = marks[k]
-		total += arr.size()
-		for v in arr:
-			if not is_blank(v):
-				filled += 1
-	return float(filled) / max(1, total)
+		if not String(k).begins_with("0_"):
+			continue
+		total += _n
+		for v in marks[k]:
+			if v == CHECK:
+				checks += 1
+	return float(min(checks, total)) / max(1, total)
 
 
 # --- Dessin -------------------------------------------------------------------

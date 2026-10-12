@@ -32,6 +32,11 @@ var _progress: ProgressBar
 var _loading: Control
 var _aid_buttons := {}
 var _thread: Thread
+var _body: BoxContainer
+var _card: PanelContainer
+var _clue_col: VBoxContainer
+var _col: VBoxContainer
+var _aids: Control
 var _save_acc := 0.0
 var _content: VBoxContainer
 
@@ -102,7 +107,14 @@ func _ready() -> void:
 	if not mods.is_empty():
 		col.add_child(_mod_bar())
 
+	# Corps : grille et indices, l'un sous l'autre en portrait, côte à côte en paysage.
+	_body = BoxContainer.new()
+	_body.vertical = true
+	_body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_body.add_theme_constant_override("separation", 12)
+	col.add_child(_body)
 	var card := PanelContainer.new()
+	_card = card
 	var sb := UI.box(Color(1, 1, 1, 0.92), 28)
 	sb.set_content_margin_all(10)
 	sb.shadow_color = Color(0.2, 0.1, 0.3, 0.12)
@@ -110,7 +122,7 @@ func _ready() -> void:
 	sb.shadow_offset = Vector2(0, 5)
 	card.add_theme_stylebox_override("panel", sb)
 	# La grille reste fixe : seuls les indices défilent, dans leur propre zone.
-	col.add_child(card)
+	_body.add_child(card)
 	_grid = GridView.new()
 	_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_grid.accent = Worlds.color(world, "accent")
@@ -123,7 +135,7 @@ func _ready() -> void:
 
 	_loading = VBoxContainer.new()
 	_loading.alignment = BoxContainer.ALIGNMENT_CENTER
-	_loading.custom_minimum_size.y = 520
+	_loading.custom_minimum_size.y = 360
 	var spin := UI.icon_rect("loupe", 110)
 	_loading.add_child(spin)
 	var lt := UI.label("Le village prépare ton énigme…", 26, UI.INK_SOFT, 500)
@@ -140,12 +152,17 @@ func _ready() -> void:
 	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	head.add_child(hint)
-	col.add_child(head)
+	_clue_col = VBoxContainer.new()
+	_clue_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_clue_col.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_clue_col.add_theme_constant_override("separation", 10)
+	_body.add_child(_clue_col)
+	_clue_col.add_child(head)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
-	col.add_child(scroll)
+	_clue_col.add_child(scroll)
 	_content = VBoxContainer.new()
 	_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_content.add_theme_constant_override("separation", 12)
@@ -157,10 +174,45 @@ func _ready() -> void:
 	pad.custom_minimum_size.y = 20
 	_content.add_child(pad)
 
-	col.add_child(_aid_bar())
+	_col = col
+	_aids = _aid_bar()
+	col.add_child(_aids)
+	_apply_layout()
 
 	_thread = Thread.new()
 	_thread.start(_generate.bind(cfg))
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_RESIZED and _body:
+		_apply_layout()
+
+
+## Place la grille selon l'orientation. Portrait : grille centrée, limitée à un peu plus de la
+## moitié de la hauteur pour laisser de la place aux indices. Paysage : grille à gauche à pleine
+## hauteur, indices et aides à droite.
+func _apply_layout() -> void:
+	var vs := get_viewport_rect().size
+	var landscape := vs.x > vs.y
+	var chrome := 20.0 + 18.0 + 76.0 + 12.0 + 14.0 + 12.0
+	if not mods.is_empty():
+		chrome += 52.0 + 12.0
+	var side: float
+	if landscape:
+		side = min(vs.y - chrome - 8.0, vs.x * 0.56)
+		_body.vertical = false
+		_card.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		_card.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		if _aids.get_parent() != _clue_col:
+			_aids.reparent(_clue_col)
+	else:
+		side = min(vs.x - 28.0, (vs.y - chrome - 86.0) * 0.52)
+		_body.vertical = true
+		_card.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		_card.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		if _aids.get_parent() != _col:
+			_aids.reparent(_col)
+	_card.custom_minimum_size.x = side
 
 
 func _generate(c: Dictionary) -> void:
@@ -312,8 +364,8 @@ func _render_clue(i: int, animate: bool) -> void:
 	var sb := UI.box(Color("ece6ff") if is_sealed else Color(1, 1, 1, 0.92), 22)
 	sb.content_margin_left = 12
 	sb.content_margin_right = 16
-	sb.content_margin_top = 12
-	sb.content_margin_bottom = 12
+	sb.content_margin_top = 9
+	sb.content_margin_bottom = 9
 	if is_sealed:
 		sb.border_color = UI.LAVENDER
 		sb.set_border_width_all(3)
@@ -373,7 +425,7 @@ func _on_wrong_complete(card: Control) -> void:
 		tw.tween_property(card, "position:x", x + 16, 0.05)
 		tw.tween_property(card, "position:x", x - 16, 0.05)
 	tw.tween_property(card, "position:x", x, 0.05)
-	main.toast("broken", "Il y a une erreur", "La grille est pleine, mais quelque chose cloche.")
+	main.toast("broken", "Il y a une erreur", "Chaque habitant a ses pastilles, mais quelque chose cloche.")
 
 
 func _on_grid_changed() -> void:
@@ -404,7 +456,7 @@ func _aid_bar() -> Control:
 func _aid_button(icon_name: String, text: String, cost: String, color: Color) -> Button:
 	var b := UI.button("", color, "", 22, UI.INK if color == UI.YELLOW else Color.WHITE)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	b.custom_minimum_size.y = 112
+	b.custom_minimum_size.y = 86
 	var v := VBoxContainer.new()
 	v.set_anchors_preset(Control.PRESET_FULL_RECT)
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -412,7 +464,7 @@ func _aid_button(icon_name: String, text: String, cost: String, color: Color) ->
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.offset_bottom = -6
 	b.add_child(v)
-	var ic := UI.icon_rect(icon_name, 46)
+	var ic := UI.icon_rect(icon_name, 36)
 	ic.name = "Icon"
 	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(ic)
@@ -511,7 +563,7 @@ func _shake(c: Control) -> void:
 func _tutorial() -> void:
 	var steps := [
 		["detective", "Ta première enquête", "Chaque habitant a exactement une valeur dans chaque catégorie, et jamais la même qu'un autre. À toi de trouver qui va avec quoi grâce aux indices."],
-		["puzzle", "La grille", "Touche une case une fois pour une croix (impossible), deux fois pour une pastille verte (c'est bien ça !), trois fois pour la vider. Tu poses toi-même chaque croix, et une seule pastille est permise par ligne et par colonne d'un bloc. Le balai efface toute la grille, la roue dentée ouvre les réglages."],
+		["puzzle", "La grille", "Touche une case une fois pour une croix (impossible), deux fois pour une pastille verte (c'est bien ça !), trois fois pour la vider. Tu gagnes dès que chaque habitant a la bonne pastille dans chaque catégorie : les croix et les autres blocs sont là pour t'aider. Une seule pastille est permise par ligne et par colonne d'un bloc. Le balai efface toute la grille, la roue dentée ouvre les réglages."],
 		["coin", "Étoiles et pièces", "Résous vite et sans aide pour gagner 3 étoiles. Les pièces gagnées servent à acheter des aides quand tu bloques."],
 	]
 	_tutorial_step(steps, 0)

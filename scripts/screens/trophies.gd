@@ -9,8 +9,10 @@ func _ready() -> void:
 	add_child(WorldBackground.new(3, 0.6))
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	# En paysage, la liste garde la largeur du portrait, centrée.
+	var side: float = max(22.0, (get_viewport_rect().size.x - 720.0) / 2.0 + 22.0)
 	for s in ["left", "right"]:
-		margin.add_theme_constant_override("margin_" + s, 22)
+		margin.add_theme_constant_override("margin_" + s, int(side))
 	margin.add_theme_constant_override("margin_top", 22)
 	margin.add_theme_constant_override("margin_bottom", 22)
 	add_child(margin)

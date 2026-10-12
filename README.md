@@ -29,8 +29,11 @@ vérifiée par un solveur avant d'être proposée.
   indice le grise.
 - Sons et musique synthétisés sur l'appareil, vibrations, sauvegarde automatique. Les réglages
   s'ouvrent depuis l'accueil et à tout moment en partie (roue dentée).
-- En partie, la grille reste fixe et seuls les indices défilent. Une grille pleine mais fausse
-  tremble, avec un son d'erreur et une vibration.
+- Une grille est gagnée dès que chaque habitant a la bonne pastille dans chaque catégorie (blocs
+  de la première ligne) : les croix et les autres blocs ne servent qu'à raisonner. Si toutes ces
+  pastilles sont posées mais qu'une est fausse, la grille tremble, avec un son et une vibration.
+- En partie, la grille reste fixe et seuls les indices défilent. En portrait, la grille est limitée
+  pour laisser de la place aux indices ; en paysage, la grille est à gauche et les indices à droite.
 
 ## Installer l'APK
 

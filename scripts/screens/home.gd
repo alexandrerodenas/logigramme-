@@ -11,13 +11,22 @@ func _ready() -> void:
 	var w: int = nxt[0]
 	add_child(WorldBackground.new(w, 1.0))
 
+	# En paysage, l'accueil garde une colonne de la largeur du portrait et défile.
+	var vs := get_viewport_rect().size
+	var scroll := ScrollContainer.new()
+	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	add_child(scroll)
 	var margin := MarginContainer.new()
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	margin.custom_minimum_size.y = vs.y
+	var side: float = max(28.0, (vs.x - 720.0) / 2.0 + 28.0)
 	for s in ["left", "right"]:
-		margin.add_theme_constant_override("margin_" + s, 28)
+		margin.add_theme_constant_override("margin_" + s, int(side))
 	margin.add_theme_constant_override("margin_top", 26)
 	margin.add_theme_constant_override("margin_bottom", 34)
-	add_child(margin)
+	scroll.add_child(margin)
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 18)
 	margin.add_child(col)

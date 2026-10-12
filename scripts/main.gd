@@ -29,6 +29,8 @@ func _ready() -> void:
 	_fx.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_fx.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_fx)
+	get_tree().root.size_changed.connect(_fit_orientation)
+	_fit_orientation()
 	go("home")
 	# Captures d'écran automatiques pour le développement (outil exclu de l'export).
 	if OS.has_environment("LOGIGRAMME_SHOTS"):
@@ -45,6 +47,25 @@ func _notification(what: int) -> void:
 			get_tree().quit()
 
 
+## Taille logique selon l'orientation : 720×1280 en portrait, 1280×720 en paysage, pour garder
+## la même taille de texte. Les écrans autres que la partie sont reconstruits à la rotation ;
+## la partie s'adapte d'elle-même (voir game_screen.gd).
+func _fit_orientation() -> void:
+	var win := DisplayServer.window_get_size()
+	var want := Vector2i(1280, 720) if win.x > win.y else Vector2i(720, 1280)
+	var root := get_tree().root
+	if root.content_scale_size == want:
+		return
+	root.content_scale_size = want
+	if screen and screen_name != "game":
+		while has_popup():
+			close_popup()
+		go(screen_name, _params)
+
+
+var _params := {}
+
+
 ## Change d'écran avec un fondu.
 func go(name: String, params: Dictionary = {}) -> void:
 	var old := screen
@@ -52,6 +73,7 @@ func go(name: String, params: Dictionary = {}) -> void:
 	screen.set_script(SCREENS[name])
 	screen.set_anchors_preset(Control.PRESET_FULL_RECT)
 	screen_name = name
+	_params = params
 	screen.set("main", self)
 	screen.set("params", params)
 	screen.modulate.a = 0.0
@@ -91,7 +113,18 @@ func popup(content: Control, dismissable: bool = true) -> PanelContainer:
 	panel.add_theme_stylebox_override("panel", sb)
 	panel.custom_minimum_size.x = min(640.0, get_viewport_rect().size.x - 48)
 	center.add_child(panel)
-	panel.add_child(content)
+	# Une fenêtre plus haute que l'écran (paysage) défile.
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	panel.add_child(scroll)
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(content)
+	var fit := func():
+		var h: float = content.get_combined_minimum_size().y
+		scroll.custom_minimum_size.y = min(h, get_viewport_rect().size.y - 140.0)
+	content.minimum_size_changed.connect(fit)
+	fit.call()
 	var tw := create_tween()
 	tw.tween_property(shade, "color:a", 0.55, 0.2)
 	panel.resized.connect(func(): panel.pivot_offset = panel.size / 2.0)
