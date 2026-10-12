@@ -8,28 +8,39 @@ vérifiée par un solveur avant d'être proposée.
 
 ## Jouer
 
-- Trois difficultés : **Facile** (3 catégories × 4), **Moyen** (4 × 4), **Difficile** (4 × 5).
-- Un appui sur une case : croix rouge (impossible), puis pastille verte (certain), puis vide.
-  Une pastille verte barre automatiquement le reste de sa ligne et de sa colonne dans le bloc.
-- Un appui sur un indice le grise une fois utilisé.
-- **Annuler**, **Vérifier** (montre les erreurs en rouge), **Indice** (place une bonne réponse), **Effacer**.
-- La progression et la grille en cours sont enregistrées sur l'appareil.
+- **Le parcours** : un chemin qui traverse cinq quartiers (Jardin, Café, Port, Festival,
+  Observatoire), 15 niveaux chacun, avec leurs catégories et leurs décors. Un coffre au trésor
+  tous les 5 niveaux. Chaque quartier s'ouvre en finissant le précédent et en réunissant assez d'étoiles.
+- **Étoiles** : 1 pour la grille résolue, 1 sans Loupe ni Éclair, 1 sous le temps de référence.
+- **Pièces** : gagnées en jouant (niveaux, coffres, trophées, défi du jour) et dépensées en aides :
+  Vérifier (10, montre les erreurs), Loupe (25, révèle une association), Éclair (40, applique les
+  indices simples). Loupe et Éclair se débloquent au fil du Jardin.
+- **Rangs** d'Apprenti à Légende grâce à l'expérience, **17 trophées**, **défi du jour** avec série.
+- Un appui sur une case : croix (impossible), puis pastille verte (certain), puis vide.
+  Une pastille barre le reste de sa ligne et de sa colonne. Un appui sur un indice le grise.
+- Sons et musique synthétisés sur l'appareil, vibrations, réglages, sauvegarde automatique.
 
 ## Installer l'APK
 
-Copier `logigramme-1.0.0.apk` sur le téléphone, l'ouvrir, puis autoriser l'installation
+Copier `logigramme-2.0.0.apk` sur le téléphone, l'ouvrir, puis autoriser l'installation
 d'applications depuis cette source quand Android le demande.
 
 ## Structure
 
 | Fichier | Rôle |
 | --- | --- |
-| `scripts/generator.gd` | Catégories, génération des indices en français, solveur qui garantit une solution unique |
-| `scripts/grid_view.gd` | Grille en escalier : dessin, appuis, annulation, vérification |
-| `scripts/main.gd` | Menu, écran de jeu, fenêtres, sauvegarde |
+| `scripts/data/worlds.gd` | Quartiers, catégories thématiques, courbe de difficulté, défi du jour |
+| `scripts/generator.gd` | Génération des indices en français, solveur qui garantit une solution unique |
+| `scripts/autoload/game.gd` | Progression, pièces, étoiles, rangs, trophées, aides, sauvegarde |
+| `scripts/autoload/sfx.gd` | Sons, musique et vibrations |
+| `scripts/grid_view.gd` | Grille en escalier : dessin, animations, appuis, aides |
+| `scripts/screens/` | Accueil, parcours, partie et victoire, trophées |
+| `scripts/ui/` | Composants visuels, décors animés, pastilles de niveau |
+| `assets/` | Icônes Twemoji (CC BY 4.0) et police Fredoka (SIL OFL) |
 | `export_presets.cfg` | Préréglage d'export Android (sans Gradle, sans permission Internet) |
 | `tools/build_apk.sh` | Construit et signe l'APK |
-| `tools/test_generator.gd` | Vérifie l'unicité des solutions et le déterminisme des niveaux |
+| `tools/test_generator.gd` | Vérifie l'unicité des solutions des 75 niveaux et le déterminisme |
+| `tools/shot_driver.gd` | Captures d'écran automatiques (variable `LOGIGRAMME_SHOTS`) |
 
 Moteur : Godot 4.3 (GDScript). Le projet s'ouvre tel quel dans l'éditeur Godot 4.3.
 
@@ -51,3 +62,8 @@ Tests seuls :
 ```sh
 godot --headless --script tools/test_generator.gd
 ```
+
+## Crédits
+
+- Icônes : [Twemoji](https://github.com/jdecked/twemoji), © Twitter et contributeurs, CC BY 4.0.
+- Police : [Fredoka](https://github.com/google/fonts/tree/main/ofl/fredoka), SIL Open Font License.

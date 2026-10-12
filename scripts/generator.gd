@@ -1,97 +1,31 @@
 class_name PuzzleGenerator
 extends RefCounted
 ## Génère localement des logigrammes à solution unique, sans aucun accès réseau.
-## Une grille est déterminée par (difficulté, niveau) : le même niveau donne
-## toujours la même grille.
+## Une grille est entièrement déterminée par sa configuration (voir Worlds).
 
 enum ClueType { SAME, DIFF, EITHER, YOUNGER, EXACT }
-
-const DIFFICULTIES := [
-	{"name": "Facile", "cats": 3, "items": 4, "age_chance": 0.3},
-	{"name": "Moyen", "cats": 4, "items": 4, "age_chance": 0.6},
-	{"name": "Difficile", "cats": 4, "items": 5, "age_chance": 0.7},
-]
-
-const NAMES := ["Léa", "Hugo", "Chloé", "Louis", "Emma", "Jules", "Inès", "Lucas",
-	"Manon", "Nathan", "Camille", "Théo", "Zoé", "Arthur", "Jade", "Paul", "Alice", "Tom"]
-
-# Chaque valeur : [libellé court, prédicat, prédicat négatif]
-const CATEGORY_POOL := [
-	{"name": "Animal", "values": [
-		["chat", "a le chat", "n'a pas le chat"],
-		["chien", "a le chien", "n'a pas le chien"],
-		["lapin", "a le lapin", "n'a pas le lapin"],
-		["hamster", "a le hamster", "n'a pas le hamster"],
-		["perroquet", "a le perroquet", "n'a pas le perroquet"],
-		["poisson", "a le poisson rouge", "n'a pas le poisson rouge"],
-		["tortue", "a la tortue", "n'a pas la tortue"],
-	]},
-	{"name": "Boisson", "values": [
-		["thé", "boit du thé", "ne boit pas de thé"],
-		["café", "boit du café", "ne boit pas de café"],
-		["chocolat", "boit du chocolat chaud", "ne boit pas de chocolat chaud"],
-		["jus", "boit du jus d'orange", "ne boit pas de jus d'orange"],
-		["limonade", "boit de la limonade", "ne boit pas de limonade"],
-		["eau", "boit de l'eau", "ne boit pas d'eau"],
-	]},
-	{"name": "Maison", "values": [
-		["rouge", "habite la maison rouge", "n'habite pas la maison rouge"],
-		["bleue", "habite la maison bleue", "n'habite pas la maison bleue"],
-		["verte", "habite la maison verte", "n'habite pas la maison verte"],
-		["jaune", "habite la maison jaune", "n'habite pas la maison jaune"],
-		["blanche", "habite la maison blanche", "n'habite pas la maison blanche"],
-		["rose", "habite la maison rose", "n'habite pas la maison rose"],
-	]},
-	{"name": "Sport", "values": [
-		["tennis", "fait du tennis", "ne fait pas de tennis"],
-		["judo", "fait du judo", "ne fait pas de judo"],
-		["vélo", "fait du vélo", "ne fait pas de vélo"],
-		["natation", "fait de la natation", "ne fait pas de natation"],
-		["escalade", "fait de l'escalade", "ne fait pas d'escalade"],
-		["football", "fait du football", "ne fait pas de football"],
-	]},
-	{"name": "Ville", "values": [
-		["Paris", "vit à Paris", "ne vit pas à Paris"],
-		["Lyon", "vit à Lyon", "ne vit pas à Lyon"],
-		["Lille", "vit à Lille", "ne vit pas à Lille"],
-		["Nantes", "vit à Nantes", "ne vit pas à Nantes"],
-		["Nice", "vit à Nice", "ne vit pas à Nice"],
-		["Brest", "vit à Brest", "ne vit pas à Brest"],
-	]},
-	{"name": "Instrument", "values": [
-		["piano", "joue du piano", "ne joue pas du piano"],
-		["guitare", "joue de la guitare", "ne joue pas de la guitare"],
-		["violon", "joue du violon", "ne joue pas du violon"],
-		["batterie", "joue de la batterie", "ne joue pas de la batterie"],
-		["flûte", "joue de la flûte", "ne joue pas de la flûte"],
-		["harpe", "joue de la harpe", "ne joue pas de la harpe"],
-	]},
-]
 
 var rng := RandomNumberGenerator.new()
 var _perms: Array = []
 var _inv_perms: Array = []
 
 
-## Construit la grille du niveau `level` pour la difficulté `difficulty` (0, 1 ou 2).
-func generate(difficulty: int, level: int) -> Dictionary:
-	rng.seed = hash("logigramme-%d-%d" % [difficulty, level])
-	var cfg: Dictionary = DIFFICULTIES[difficulty]
-	var n_cats: int = cfg.cats
+## Construit une grille à partir d'une configuration de Worlds (level_config ou daily_config).
+## La même configuration donne toujours la même grille.
+func generate(cfg: Dictionary) -> Dictionary:
+	rng.seed = hash("logigramme-" + String(cfg.seed))
+	var n_cats: int = cfg.n_cats
 	var n: int = cfg.items
-	var pz := {"difficulty": difficulty, "level": level, "n_cats": n_cats, "items": n, "age_cat": -1}
+	var pz := {"cfg": cfg, "n_cats": n_cats, "items": n, "age_cat": -1, "hard": n_cats * n >= 16}
 
-	var cats: Array = []
-	cats.append(_make_names(n))
-	var with_age := rng.randf() < float(cfg.age_chance)
-	var pool := _shuffled(range(CATEGORY_POOL.size()))
-	var others := n_cats - 1 - (1 if with_age else 0)
-	for i in others:
-		cats.append(_make_category(CATEGORY_POOL[pool[i]], n))
-	if with_age:
-		var pos := 1 + rng.randi_range(0, n_cats - 2)
-		cats.insert(pos, _make_age(n))
-		pz.age_cat = pos
+	var cats: Array = [_make_names(n)]
+	var defs: Array = _shuffled(cfg.cats)
+	for def in defs:
+		if def.has("age"):
+			pz.age_cat = cats.size()
+			cats.append(_make_age(n))
+		else:
+			cats.append(_make_category(def, n))
 	pz.cats = cats
 
 	# Solution : sol[c][e] = indice de la valeur de la catégorie c pour l'entité e.
@@ -145,12 +79,14 @@ static func is_match(pz: Dictionary, a: int, va: int, b: int, vb: int) -> bool:
 # --- Catégories ---------------------------------------------------------------
 
 func _make_names(n: int) -> Dictionary:
-	var names := _shuffled(NAMES).slice(0, n)
+	var names := _shuffled(Worlds.NAMES).slice(0, n)
 	names.sort()
 	var values: Array = []
-	for nm in names:
-		values.append({"short": nm, "pred": "est " + nm, "neg": "n'est pas " + nm, "desc": nm, "name": true})
-	return {"name": "Prénom", "values": values, "ordered": false}
+	for i in names.size():
+		var nm: String = names[i]
+		values.append({"short": nm, "pred": "est " + nm, "neg": "n'est pas " + nm, "desc": nm, "name": true,
+			"avatar": Worlds.AVATAR_COLORS[i % Worlds.AVATAR_COLORS.size()]})
+	return {"name": "Prénom", "icon": "detective", "values": values}
 
 
 func _make_category(def: Dictionary, n: int) -> Dictionary:
@@ -159,19 +95,19 @@ func _make_category(def: Dictionary, n: int) -> Dictionary:
 	var values: Array = []
 	for i in idx:
 		var v: Array = def.values[i]
-		values.append({"short": v[0], "pred": v[1], "neg": v[2], "desc": "la personne qui " + v[1]})
-	return {"name": def.name, "values": values, "ordered": false}
+		values.append({"icon": v[0], "short": v[1], "pred": v[2], "neg": v[3], "desc": "la personne qui " + v[2]})
+	return {"name": def.name, "icon": def.icon, "values": values}
 
 
 func _make_age(n: int) -> Dictionary:
 	var step: int = [1, 2, 3, 5][rng.randi_range(0, 3)]
-	var base := rng.randi_range(18, 40)
+	var base := rng.randi_range(8, 40)
 	var values: Array = []
 	for i in n:
 		var age := base + i * step
 		values.append({"short": "%d ans" % age, "pred": "a %d ans" % age, "neg": "n'a pas %d ans" % age,
-			"desc": "la personne de %d ans" % age})
-	return {"name": "Âge", "values": values, "ordered": true, "step": step}
+			"desc": "la personne de %d ans" % age, "age": age})
+	return {"name": "Âge", "icon": "hourglass", "values": values, "ordered": true, "step": step}
 
 
 # --- Indices ------------------------------------------------------------------
@@ -184,7 +120,7 @@ func _random_clue(pz: Dictionary) -> Dictionary:
 	var types := [ClueType.SAME, ClueType.DIFF, ClueType.DIFF, ClueType.DIFF, ClueType.EITHER, ClueType.EITHER]
 	if g >= 0:
 		types += [ClueType.YOUNGER, ClueType.YOUNGER, ClueType.EXACT]
-	if pz.difficulty == 0:
+	if not pz.hard:
 		types.append(ClueType.SAME)
 	var t: int = types[rng.randi_range(0, types.size() - 1)]
 	var e1 := rng.randi_range(0, n - 1)

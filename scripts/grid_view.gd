@@ -1,29 +1,32 @@
 class_name GridView
 extends Control
 ## Grille de logigramme en escalier : chaque bloc croise deux catégories.
-## Un appui fait défiler une case : vide → ✗ → ✓ → vide.
+## Un appui fait défiler une case : vide → croix → pastille → vide.
 
 signal changed
 signal solved
+signal marked(kind: int)
 
 const EMPTY := 0
 const CROSS := 1
 const CHECK := 2
 
-const COL_BG := Color("fffdf7")
-const COL_LINE := Color("c9c2b0")
-const COL_LINE_STRONG := Color("4a4335")
-const COL_TEXT := Color("2b2620")
-const COL_CROSS := Color("b23a2e")
-const COL_CHECK := Color("2e7d4f")
-const COL_ERROR := Color(1, 0.3, 0.25, 0.35)
-const COL_HILITE := Color(0.95, 0.8, 0.35, 0.25)
+const COL_BG := Color("fffdf8")
+const COL_BG_ALT := Color("fbf3e6")
+const COL_LINE := Color("e3d8c8")
+const COL_TEXT := Color("3d3047")
+const COL_CROSS := Color("f0705a")
+const COL_CHECK := Color("43b98f")
+const COL_ERROR := Color(1, 0.3, 0.25, 0.4)
+const COL_HILITE := Color(1.0, 0.82, 0.3, 0.22)
+const COL_GLOW := Color(1.0, 0.85, 0.2, 0.75)
 
 var pz: Dictionary
 var marks := {}          # "a_b" (a < b) -> PackedByteArray de taille n*n
 var errors := {}         # "a_b:idx" -> true
 var undo_stack: Array = []
 var is_solved := false
+var accent := Color("ff7a59")
 
 var _n := 0
 var _row_cats: Array = []
@@ -31,8 +34,13 @@ var _col_cats: Array = []
 var _cell := 40.0
 var _label_w := 120.0
 var _font: Font
+var _font_bold: Font
 var _font_size := 16
 var _hover := Vector2i(-1, -1)
+var _anims := {}         # "a_b:idx" -> instant de départ (s)
+var _glow := {}          # "a_b:idx" -> instant de départ (s)
+var _time := 0.0
+var _press := Vector2.ZERO
 
 
 func setup(puzzle: Dictionary, saved_marks: Dictionary = {}) -> void:
@@ -56,8 +64,11 @@ func setup(puzzle: Dictionary, saved_marks: Dictionary = {}) -> void:
 			marks[key] = arr
 	undo_stack.clear()
 	errors.clear()
+	_anims.clear()
+	_glow.clear()
 	is_solved = _check_solved()
-	_font = get_theme_default_font()
+	_font = UI.font(500)
+	_font_bold = UI.font(600)
 	_relayout()
 	queue_redraw()
 
@@ -75,14 +86,26 @@ func _notification(what: int) -> void:
 		queue_redraw()
 
 
+func _process(delta: float) -> void:
+	_time += delta
+	if not _anims.is_empty() or not _glow.is_empty():
+		for k in _anims.keys():
+			if _time - float(_anims[k]) > 0.35:
+				_anims.erase(k)
+		for k in _glow.keys():
+			if _time - float(_glow[k]) > 1.6:
+				_glow.erase(k)
+		queue_redraw()
+
+
 func _relayout() -> void:
 	var cols := _col_cats.size() * _n
 	var w := size.x
-	# La zone des libellés vaut environ 2,6 cases.
-	_cell = floor(w / (cols + 2.6))
+	# La zone des libellés vaut environ 2,8 cases.
+	_cell = floor(w / (cols + 2.8))
 	_label_w = w - cols * _cell
-	_font_size = int(clamp(_cell * 0.3, 11, 22))
-	custom_minimum_size.y = _label_w + _row_cats.size() * _n * _cell + 2
+	_font_size = int(clamp(_cell * 0.32, 13, 24))
+	custom_minimum_size.y = _label_w + _row_cats.size() * _n * _cell + 4
 
 
 func _block_exists(rg: int, cg: int) -> bool:
@@ -108,6 +131,7 @@ func _set_mark(rc: int, rv: int, cc: int, cv: int, v: int, action: Array) -> voi
 	action.append([ki[0], ki[1], arr[ki[1]]])
 	arr[ki[1]] = v
 	marks[ki[0]] = arr
+	_anims["%s:%d" % ki] = _time
 
 
 func _cell_at(pos: Vector2) -> Array:
@@ -124,13 +148,22 @@ func _cell_at(pos: Vector2) -> Array:
 	return [_row_cats[rg], ri % _n, _col_cats[cg], ci % _n, rg, cg]
 
 
+func _ready() -> void:
+	# Laisse passer les glissements au défilement parent ; un appui court marque la case.
+	mouse_filter = Control.MOUSE_FILTER_PASS
+
+
 func _gui_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			_press = event.global_position
+			return
+		if event.global_position.distance_to(_press) > 22:
+			return
 		var hit := _cell_at(event.position)
 		if hit.is_empty() or is_solved:
 			return
 		_tap(hit)
-		accept_event()
 
 
 func _tap(hit: Array) -> void:
@@ -143,14 +176,19 @@ func _tap(hit: Array) -> void:
 	var action: Array = []
 	_set_mark(rc, rv, cc, cv, nxt, action)
 	if nxt == CHECK:
-		# Un ✓ exclut le reste de sa ligne et de sa colonne dans ce bloc.
-		for v in _n:
-			if v != cv and get_mark(rc, rv, cc, v) == EMPTY:
-				_set_mark(rc, rv, cc, v, CROSS, action)
-			if v != rv and get_mark(rc, v, cc, cv) == EMPTY:
-				_set_mark(rc, v, cc, cv, CROSS, action)
+		_exclude(rc, rv, cc, cv, action)
 	_hover = Vector2i(hit[4] * _n + rv, hit[5] * _n + cv)
+	marked.emit(nxt)
 	_commit(action)
+
+
+## Un ✓ exclut le reste de sa ligne et de sa colonne dans ce bloc.
+func _exclude(rc: int, rv: int, cc: int, cv: int, action: Array) -> void:
+	for v in _n:
+		if v != cv and get_mark(rc, rv, cc, v) == EMPTY:
+			_set_mark(rc, rv, cc, v, CROSS, action)
+		if v != rv and get_mark(rc, v, cc, cv) == EMPTY:
+			_set_mark(rc, v, cc, cv, CROSS, action)
 
 
 func _commit(action: Array) -> void:
@@ -165,18 +203,20 @@ func _commit(action: Array) -> void:
 		solved.emit()
 
 
-func undo() -> void:
+func undo() -> bool:
 	if undo_stack.is_empty() or is_solved:
-		return
+		return false
 	var action: Array = undo_stack.pop_back()
 	for i in range(action.size() - 1, -1, -1):
 		var e: Array = action[i]
 		var arr: PackedByteArray = marks[e[0]]
 		arr[e[1]] = e[2]
 		marks[e[0]] = arr
+		_anims["%s:%d" % [e[0], e[1]]] = _time
 	errors.clear()
 	queue_redraw()
 	changed.emit()
+	return true
 
 
 func clear_all() -> void:
@@ -210,8 +250,9 @@ func check_errors() -> int:
 	return errors.size()
 
 
-## Fait apparaître un ✓ correct pas encore trouvé. Renvoie false s'il n'y en a plus.
+## Aide « Loupe » : place un ✓ correct pas encore trouvé. Renvoie false s'il n'y en a plus.
 func reveal_one() -> bool:
+	var candidates: Array = []
 	for rg in _row_cats.size():
 		for cg in _col_cats.size():
 			if not _block_exists(rg, cg):
@@ -221,17 +262,48 @@ func reveal_one() -> bool:
 			for rv in _n:
 				for cv in _n:
 					if PuzzleGenerator.is_match(pz, rc, rv, cc, cv) and get_mark(rc, rv, cc, cv) != CHECK:
-						var action: Array = []
-						_set_mark(rc, rv, cc, cv, CHECK, action)
-						for v in _n:
-							if v != cv:
-								_set_mark(rc, rv, cc, v, CROSS, action)
-							if v != rv:
-								_set_mark(rc, v, cc, cv, CROSS, action)
-						_hover = Vector2i(rg * _n + rv, cg * _n + cv)
-						_commit(action)
-						return true
-	return false
+						candidates.append([rc, rv, cc, cv, rg, cg])
+	if candidates.is_empty():
+		return false
+	var h: Array = candidates[randi() % candidates.size()]
+	var action: Array = []
+	_set_mark(h[0], h[1], h[2], h[3], CHECK, action)
+	for v in _n:
+		if v != h[3]:
+			_set_mark(h[0], h[1], h[2], v, CROSS, action)
+		if v != h[1]:
+			_set_mark(h[0], v, h[2], h[3], CROSS, action)
+	_glow["%s:%d" % _key_idx(h[0], h[1], h[2], h[3])] = _time
+	_hover = Vector2i(h[4] * _n + h[1], h[5] * _n + h[3])
+	_commit(action)
+	return true
+
+
+## Aide « Éclair » : applique tous les indices « est » et « n'est pas ». Renvoie le nombre de cases changées.
+func apply_simple_clues() -> int:
+	var action: Array = []
+	for cl in pz.clues:
+		var t := int(cl.type)
+		if t != PuzzleGenerator.ClueType.SAME and t != PuzzleGenerator.ClueType.DIFF:
+			continue
+		var a: Array = cl.a
+		var b: Array = cl.b
+		var before := action.size()
+		if t == PuzzleGenerator.ClueType.SAME:
+			if get_mark(a[0], a[1], b[0], b[1]) != CHECK:
+				_set_mark(a[0], a[1], b[0], b[1], CHECK, action)
+				for v in _n:
+					if v != b[1]:
+						_set_mark(a[0], a[1], b[0], v, CROSS, action)
+					if v != a[1]:
+						_set_mark(a[0], v, b[0], b[1], CROSS, action)
+		elif get_mark(a[0], a[1], b[0], b[1]) == EMPTY:
+			_set_mark(a[0], a[1], b[0], b[1], CROSS, action)
+		for i in range(before, action.size()):
+			_glow["%s:%d" % [action[i][0], action[i][1]]] = _time
+	var n := action.size()
+	_commit(action)
+	return n
 
 
 func _check_solved() -> bool:
@@ -247,6 +319,19 @@ func _check_solved() -> bool:
 	return true
 
 
+## Part de cases remplies (0 à 1), pour la barre de progression.
+func fill_ratio() -> float:
+	var total := 0
+	var filled := 0
+	for k in marks:
+		var arr: PackedByteArray = marks[k]
+		total += arr.size()
+		for v in arr:
+			if v != EMPTY:
+				filled += 1
+	return float(filled) / max(1, total)
+
+
 # --- Dessin -------------------------------------------------------------------
 
 func _draw() -> void:
@@ -257,13 +342,14 @@ func _draw() -> void:
 	var n_rows := _row_cats.size()
 	var origin := Vector2(_label_w, _label_w)
 
-	# Fond des blocs et surbrillance de la ligne/colonne active.
+	# Fond des blocs (alternance douce) et ombre portée.
 	for rg in n_rows:
 		for cg in n_cols:
 			if not _block_exists(rg, cg):
 				continue
 			var r := Rect2(origin + Vector2(cg * _n, rg * _n) * _cell, Vector2(_n, _n) * _cell)
-			draw_rect(r, COL_BG)
+			draw_rect(Rect2(r.position + Vector2(0, 4), r.size), Color(0.24, 0.19, 0.28, 0.08))
+			draw_rect(r, COL_BG if (rg + cg) % 2 == 0 else COL_BG_ALT)
 	if _hover.x >= 0:
 		var hr := _hover.x
 		var hc := _hover.y
@@ -276,7 +362,17 @@ func _draw() -> void:
 			if _block_exists(rg, cg_h):
 				draw_rect(Rect2(origin + Vector2(hc, rg * _n) * _cell, Vector2(_cell, _n * _cell)), COL_HILITE)
 
-	# Marques.
+	# Lignes fines.
+	for rg in n_rows:
+		for cg in n_cols:
+			if not _block_exists(rg, cg):
+				continue
+			var p0 := origin + Vector2(cg * _n, rg * _n) * _cell
+			for i in range(1, _n):
+				draw_line(p0 + Vector2(i * _cell, 0), p0 + Vector2(i * _cell, _n * _cell), COL_LINE, 1.5)
+				draw_line(p0 + Vector2(0, i * _cell), p0 + Vector2(_n * _cell, i * _cell), COL_LINE, 1.5)
+
+	# Marques, erreurs et halos.
 	for rg in n_rows:
 		for cg in n_cols:
 			if not _block_exists(rg, cg):
@@ -287,59 +383,93 @@ func _draw() -> void:
 				for cv in _n:
 					var p := origin + Vector2(cg * _n + cv, rg * _n + rv) * _cell
 					var ki := _key_idx(rc, rv, cc, cv)
-					if errors.has("%s:%d" % ki):
+					var id := "%s:%d" % ki
+					if errors.has(id):
 						draw_rect(Rect2(p, Vector2(_cell, _cell)), COL_ERROR)
+					if _glow.has(id):
+						var g: float = 1.0 - (_time - float(_glow[id])) / 1.6
+						draw_circle(p + Vector2(_cell, _cell) * 0.5, _cell * (0.45 + 0.15 * sin(_time * 10.0)), Color(COL_GLOW, COL_GLOW.a * g))
+					var s := 1.0
+					if _anims.has(id):
+						var t: float = clamp((_time - float(_anims[id])) / 0.3, 0.0, 1.0)
+						s = _back_out(t)
 					var m: int = marks[ki[0]][ki[1]]
 					if m == CROSS:
-						_draw_cross(p)
+						_draw_cross(p, s)
 					elif m == CHECK:
-						_draw_check(p)
+						_draw_check(p, s)
 
-	# Lignes fines puis contours épais des blocs.
+	# Contours arrondis des blocs, couleur du monde.
 	for rg in n_rows:
 		for cg in n_cols:
 			if not _block_exists(rg, cg):
 				continue
 			var p0 := origin + Vector2(cg * _n, rg * _n) * _cell
-			for i in range(1, _n):
-				draw_line(p0 + Vector2(i * _cell, 0), p0 + Vector2(i * _cell, _n * _cell), COL_LINE, 1.0)
-				draw_line(p0 + Vector2(0, i * _cell), p0 + Vector2(_n * _cell, i * _cell), COL_LINE, 1.0)
-			draw_rect(Rect2(p0, Vector2(_n, _n) * _cell), COL_LINE_STRONG, false, 2.0)
+			draw_rect(Rect2(p0, Vector2(_n, _n) * _cell), accent.darkened(0.15), false, 3.0)
 
-	# Libellés des lignes (à gauche).
-	var asc := _font.get_ascent(_font_size)
+	# Libellés des lignes : icône (ou avatar) collée à la grille, texte à gauche.
+	var ic: float = min(_cell * 0.72, 44.0)
 	for rg in n_rows:
 		var rc: int = _row_cats[rg]
 		for rv in _n:
-			var txt: String = cats[rc].values[rv].short
-			var y := origin.y + (rg * _n + rv) * _cell + _cell * 0.5 + asc * 0.35
-			draw_string(_font, Vector2(6, y), txt, HORIZONTAL_ALIGNMENT_RIGHT, _label_w - 14, _font_size, COL_TEXT)
-		draw_line(Vector2(4, origin.y + rg * _n * _cell), Vector2(_label_w, origin.y + rg * _n * _cell), COL_LINE_STRONG, 2.0)
-	draw_line(Vector2(4, origin.y + n_rows * _n * _cell), Vector2(_label_w, origin.y + n_rows * _n * _cell), COL_LINE_STRONG, 2.0)
+			var v: Dictionary = cats[rc].values[rv]
+			var cy := origin.y + (rg * _n + rv) * _cell + _cell * 0.5
+			var icon_c := Vector2(_label_w - ic * 0.5 - 6, cy)
+			_draw_value_icon(v, icon_c, ic)
+			var asc := _font.get_ascent(_font_size)
+			draw_string(_font, Vector2(4, cy + asc * 0.36), v.short, HORIZONTAL_ALIGNMENT_RIGHT, _label_w - ic - 16, _font_size, COL_TEXT)
 
-	# Libellés des colonnes (en haut, verticaux).
+	# Libellés des colonnes : icône en bas, texte vertical au-dessus.
 	for cg in n_cols:
 		var cc: int = _col_cats[cg]
 		for cv in _n:
-			var txt: String = cats[cc].values[cv].short
-			var x := origin.x + (cg * _n + cv) * _cell + _cell * 0.5 + asc * 0.35
-			draw_set_transform(Vector2(x, _label_w - 8), -PI / 2.0)
-			draw_string(_font, Vector2.ZERO, txt, HORIZONTAL_ALIGNMENT_LEFT, _label_w - 14, _font_size, COL_TEXT)
-		draw_set_transform(Vector2.ZERO)
-		draw_line(Vector2(origin.x + cg * _n * _cell, 4), Vector2(origin.x + cg * _n * _cell, _label_w), COL_LINE_STRONG, 2.0)
-	draw_line(Vector2(origin.x + n_cols * _n * _cell, 4), Vector2(origin.x + n_cols * _n * _cell, _label_w), COL_LINE_STRONG, 2.0)
+			var v: Dictionary = cats[cc].values[cv]
+			var cx := origin.x + (cg * _n + cv) * _cell + _cell * 0.5
+			_draw_value_icon(v, Vector2(cx, _label_w - ic * 0.5 - 6), ic)
+			var asc := _font.get_ascent(_font_size)
+			draw_set_transform(Vector2(cx + asc * 0.36, _label_w - ic - 14), -PI / 2.0)
+			draw_string(_font, Vector2.ZERO, v.short, HORIZONTAL_ALIGNMENT_LEFT, _label_w - ic - 20, _font_size, COL_TEXT)
+			draw_set_transform(Vector2.ZERO)
 
 
-func _draw_cross(p: Vector2) -> void:
-	var m := _cell * 0.3
-	var w: float = max(2.0, _cell * 0.07)
-	draw_line(p + Vector2(m, m), p + Vector2(_cell - m, _cell - m), COL_CROSS, w, true)
-	draw_line(p + Vector2(_cell - m, m), p + Vector2(m, _cell - m), COL_CROSS, w, true)
+func _draw_value_icon(v: Dictionary, c: Vector2, sz: float) -> void:
+	if v.has("avatar"):
+		draw_circle(c, sz * 0.48, Color(v.avatar))
+		var ch: String = String(v.short).substr(0, 1)
+		var fs := int(sz * 0.55)
+		var w := _font_bold.get_string_size(ch, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		draw_string(_font_bold, c + Vector2(-w * 0.5, _font_bold.get_ascent(fs) * 0.36), ch, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)
+		return
+	if v.has("age"):
+		draw_circle(c, sz * 0.48, Color("ffe7a8"))
+		var txt := str(v.age)
+		var fs := int(sz * 0.45)
+		var w := _font_bold.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		draw_string(_font_bold, c + Vector2(-w * 0.5, _font_bold.get_ascent(fs) * 0.36), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, COL_TEXT)
+		return
+	var tex := UI.icon(v.get("icon", ""))
+	if tex:
+		draw_texture_rect(tex, Rect2(c - Vector2(sz, sz) * 0.5, Vector2(sz, sz)), false)
 
 
-func _draw_check(p: Vector2) -> void:
+static func _back_out(t: float) -> float:
+	var c1 := 1.70158
+	var c3 := c1 + 1.0
+	return 1.0 + c3 * pow(t - 1.0, 3) + c1 * pow(t - 1.0, 2)
+
+
+func _draw_cross(p: Vector2, s: float) -> void:
 	var c := p + Vector2(_cell, _cell) * 0.5
-	draw_circle(c, _cell * 0.36, COL_CHECK)
-	var s := _cell * 0.36
-	var pts := PackedVector2Array([c + Vector2(-0.5, 0.0) * s, c + Vector2(-0.12, 0.38) * s, c + Vector2(0.52, -0.36) * s])
+	var m := _cell * 0.2 * s
+	var w: float = max(2.5, _cell * 0.09)
+	draw_line(c + Vector2(-m, -m), c + Vector2(m, m), COL_CROSS, w, true)
+	draw_line(c + Vector2(m, -m), c + Vector2(-m, m), COL_CROSS, w, true)
+
+
+func _draw_check(p: Vector2, s: float) -> void:
+	var c := p + Vector2(_cell, _cell) * 0.5
+	var r := _cell * 0.36 * s
+	draw_circle(c + Vector2(0, 2), r, COL_CHECK.darkened(0.25))
+	draw_circle(c, r, COL_CHECK)
+	var pts := PackedVector2Array([c + Vector2(-0.45, 0.02) * r, c + Vector2(-0.1, 0.36) * r, c + Vector2(0.48, -0.32) * r])
 	draw_polyline(pts, Color.WHITE, max(2.0, _cell * 0.08), true)
