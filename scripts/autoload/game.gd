@@ -14,7 +14,7 @@ const AIDS := {
 	"loupe": {"name": "Loupe", "icon": "loupe", "cost": 25,
 		"desc": "Révèle une bonne association.", "unlock": [0, 3]},
 	"eclair": {"name": "Éclair", "icon": "eclair", "cost": 40,
-		"desc": "Applique d'un coup tous les indices simples (« est » et « n'est pas »).", "unlock": [0, 8]},
+		"desc": "Applique d'un coup tous les indices simples (« est » et « n'est pas »).", "unlock": [1, 4]},
 }
 
 const RANKS := [
@@ -22,7 +22,8 @@ const RANKS := [
 	[1300, "Commissaire"], [2100, "Légende"],
 ]
 
-const ACHIEVEMENTS := [
+## Trophées généraux ; ceux de fin de quartier sont ajoutés au lancement (voir _ready).
+const BASE_ACHIEVEMENTS := [
 	{"id": "first", "icon": "puzzle", "name": "Premier pas", "desc": "Résoudre une première grille.", "stat": "solved", "goal": 1, "coins": 20},
 	{"id": "solved10", "icon": "scroll", "name": "Enquêteur", "desc": "Résoudre 10 grilles.", "stat": "solved", "goal": 10, "coins": 40},
 	{"id": "solved40", "icon": "detective", "name": "Fin limier", "desc": "Résoudre 40 grilles.", "stat": "solved", "goal": 40, "coins": 100},
@@ -33,30 +34,33 @@ const ACHIEVEMENTS := [
 	{"id": "stars50", "icon": "star", "name": "Collectionneur", "desc": "Réunir 50 étoiles.", "stat": "stars", "goal": 50, "coins": 60},
 	{"id": "stars150", "icon": "medal", "name": "Constellation", "desc": "Réunir 150 étoiles.", "stat": "stars", "goal": 150, "coins": 150},
 	{"id": "boss1", "icon": "crown2", "name": "Tombeur de boss", "desc": "Résoudre une grande énigme de fin de quartier.", "stat": "bosses", "goal": 1, "coins": 50},
-	{"id": "boss5", "icon": "crown", "name": "Grand maître", "desc": "Résoudre les 5 grandes énigmes.", "stat": "bosses", "goal": 5, "coins": 200},
+	{"id": "boss5", "icon": "crown", "name": "Grand maître", "desc": "Résoudre les 10 grandes énigmes.", "stat": "bosses", "goal": 10, "coins": 200},
 	{"id": "flawless", "icon": "heart", "name": "Cœur vaillant", "desc": "Finir un niveau Sans faute sans perdre un seul cœur.", "stat": "flawless", "goal": 1, "coins": 40},
 	{"id": "chrono3", "icon": "timer", "name": "Course contre la montre", "desc": "Gagner 3 niveaux Contre-la-montre.", "stat": "chrono", "goal": 3, "coins": 60},
 	{"id": "fog3", "icon": "key", "name": "Serrurier", "desc": "Gagner 3 niveaux à indices scellés.", "stat": "fog", "goal": 3, "coins": 60},
 	{"id": "daily1", "icon": "calendar", "name": "Rendez-vous", "desc": "Réussir un défi du jour.", "stat": "daily_done", "goal": 1, "coins": 20},
 	{"id": "streak3", "icon": "fire", "name": "Habitué", "desc": "Réussir le défi du jour 3 jours de suite.", "stat": "best_streak", "goal": 3, "coins": 50},
 	{"id": "streak7", "icon": "fire", "name": "Fidèle", "desc": "Réussir le défi du jour 7 jours de suite.", "stat": "best_streak", "goal": 7, "coins": 120},
-	{"id": "world0", "icon": "sunflower", "name": "Main verte", "desc": "Terminer le Jardin.", "stat": "world0", "goal": 1, "coins": 50},
-	{"id": "world1", "icon": "coffee", "name": "Barista", "desc": "Terminer le Café.", "stat": "world1", "goal": 1, "coins": 60},
-	{"id": "world2", "icon": "anchor", "name": "Capitaine", "desc": "Terminer le Port.", "stat": "world2", "goal": 1, "coins": 70},
-	{"id": "world3", "icon": "tent", "name": "Maestro", "desc": "Terminer le Festival.", "stat": "world3", "goal": 1, "coins": 80},
-	{"id": "world4", "icon": "telescope", "name": "Astronome", "desc": "Terminer l'Observatoire.", "stat": "world4", "goal": 1, "coins": 100},
 ]
 
 var data := {}
+var ACHIEVEMENTS: Array = []
 
 
 func _ready() -> void:
+	ACHIEVEMENTS = BASE_ACHIEVEMENTS.duplicate()
+	for w in Worlds.world_count():
+		var wd: Dictionary = Worlds.WORLDS[w]
+		var place: String = wd.name
+		place = place.substr(0, 1).to_lower() + place.substr(1)
+		ACHIEVEMENTS.append({"id": "world%d" % w, "icon": wd.icon, "name": wd.trophy,
+			"desc": "Terminer %s." % place, "stat": "world%d" % w, "goal": 1, "coins": 40 + 10 * w})
 	_load()
 
 
 func _default() -> Dictionary:
 	return {
-		"version": 2, "coins": START_COINS, "xp": 0,
+		"version": 3, "coins": START_COINS, "xp": 0,
 		"levels": {}, "current": {},
 		"daily": {"last": "", "streak": 0},
 		"stats": {"solved": 0, "three_star": 0, "no_aid": 0, "fast": 0, "daily_done": 0, "best_streak": 0},
@@ -72,11 +76,53 @@ func _load() -> void:
 		return
 	var parsed = JSON.parse_string(FileAccess.get_file_as_string(SAVE_PATH))
 	if parsed is Dictionary and int(parsed.get("version", 0)) == 2:
+		_migrate_v2(parsed)
+	if parsed is Dictionary and int(parsed.get("version", 0)) == 3:
 		for k in parsed:
 			if data.has(k) and typeof(data[k]) == TYPE_DICTIONARY and parsed[k] is Dictionary:
 				data[k].merge(parsed[k], true)
 			else:
 				data[k] = parsed[k]
+
+
+## Version 2 : 5 quartiers de 15 niveaux. Version 3 : 10 quartiers de 8 niveaux.
+## Les anciens quartiers gardent leurs niveaux 1 à 7 ; les grilles en cours sont oubliées
+## (elles ne correspondent plus aux mêmes énigmes).
+func _migrate_v2(d: Dictionary) -> void:
+	const OLD_TO_NEW := [0, 2, 4, 6, 9]
+	var levels := {}
+	for k in d.get("levels", {}):
+		var parts: PackedStringArray = String(k).split("-")
+		if parts.size() != 2:
+			continue
+		var ow := int(parts[0])
+		var l := int(parts[1])
+		if ow < OLD_TO_NEW.size() and l < Worlds.LEVELS_PER_WORLD:
+			levels[level_key(OLD_TO_NEW[ow], l)] = d.levels[k]
+	d.levels = levels
+	var cur := {}
+	for k in d.get("current", {}):
+		if String(k).begins_with("daily-"):
+			cur[k] = d.current[k]
+	d.current = cur
+	for bag in ["achievements", "stats"]:
+		var src: Dictionary = d.get(bag, {})
+		var out := {}
+		for k in src:
+			var key := String(k)
+			if key.begins_with("world") and key.substr(5).is_valid_int():
+				var ow := int(key.substr(5))
+				if ow < OLD_TO_NEW.size():
+					out["world%d" % OLD_TO_NEW[ow]] = src[k]
+			else:
+				out[k] = src[k]
+		d[bag] = out
+	var seen := {"0": true}
+	for k in d.get("seen_worlds", {}):
+		if String(k).is_valid_int() and int(k) < OLD_TO_NEW.size():
+			seen[str(OLD_TO_NEW[int(k)])] = true
+	d.seen_worlds = seen
+	d.version = 3
 
 
 func save() -> void:

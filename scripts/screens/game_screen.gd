@@ -450,7 +450,7 @@ func _use_aid(id: String) -> void:
 	var a: Dictionary = Game.AIDS[id]
 	if not Game.is_aid_unlocked(id):
 		var u: Array = a.unlock
-		main.toast("lock", "%s verrouillée" % a.name, "Se débloque après le niveau %d du %s." % [u[1], Worlds.WORLDS[u[0]].name])
+		main.toast("lock", "%s verrouillée" % a.name, "Se débloque après le niveau %d (%s)." % [u[1], Worlds.WORLDS[u[0]].name])
 		Sfx.play("error")
 		return
 	if Game.coins() < int(a.cost):

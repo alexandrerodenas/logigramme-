@@ -3,8 +3,8 @@ extends RefCounted
 ## Les mondes du parcours, leurs catégories thématiques et la courbe de difficulté.
 ## Chaque valeur de catégorie : [icône, libellé court, prédicat, prédicat négatif].
 
-const LEVELS_PER_WORLD := 15
-const CHEST_EVERY := 5
+const LEVELS_PER_WORLD := 8
+const CHEST_EVERY := 4
 
 const NAMES := ["Léa", "Hugo", "Chloé", "Louis", "Emma", "Jules", "Inès", "Lucas", "Manon",
 	"Nathan", "Camille", "Théo", "Zoé", "Arthur", "Jade", "Paul", "Alice", "Tom", "Lina", "Noé"]
@@ -20,16 +20,22 @@ const MODS := {
 		"desc": "Certains indices sont sous scellés. Chaque bonne pastille te donne une clé pour en ouvrir un."},
 }
 
-## Niveaux spéciaux de chaque quartier : niveau -> modificateurs. Le niveau 15 est toujours la grande énigme.
+## Niveaux spéciaux de chaque quartier : niveau -> modificateurs. Le dernier niveau est toujours la grande énigme.
 const SPECIAL := [
-	{7: ["hearts"], 11: ["chrono"]},
-	{4: ["chrono"], 9: ["hearts"], 12: ["fog"]},
-	{3: ["fog"], 7: ["chrono"], 11: ["hearts"]},
-	{2: ["hearts"], 6: ["fog"], 10: ["chrono"], 13: ["hearts", "chrono"]},
-	{3: ["fog"], 5: ["chrono"], 8: ["hearts"], 11: ["fog", "hearts"], 13: ["chrono", "fog"]},
+	{5: ["hearts"]},
+	{4: ["chrono"]},
+	{3: ["fog"], 6: ["hearts"]},
+	{3: ["chrono"], 6: ["fog"]},
+	{2: ["hearts"], 5: ["chrono"]},
+	{3: ["fog"], 6: ["hearts"]},
+	{2: ["chrono"], 5: ["fog"], 7: ["hearts"]},
+	{3: ["hearts", "chrono"], 6: ["fog"]},
+	{2: ["fog"], 4: ["chrono"], 6: ["hearts", "fog"]},
+	{2: ["chrono"], 4: ["fog", "hearts"], 6: ["chrono", "fog"]},
 ]
-const BOSS_MODS := [["hearts"], ["chrono"], ["fog"], ["hearts"], ["hearts", "fog"]]
-const BOSS_SIZE := [[4, 4], [4, 5], [5, 4], [5, 4], [5, 4]]
+const BOSS_MODS := [["hearts"], ["chrono"], ["fog"], ["hearts"], ["chrono"], ["fog"], ["hearts"],
+	["hearts", "chrono"], ["fog", "chrono"], ["hearts", "fog"]]
+const BOSS_SIZE := [[4, 4], [4, 4], [4, 4], [4, 5], [4, 5], [5, 4], [5, 4], [5, 4], [5, 4], [5, 4]]
 
 ## Nouveaux types d'indices, présentés la première fois qu'ils apparaissent.
 const CLUE_INTROS := {
@@ -138,6 +144,111 @@ const CATS := {
 		["train", "train", "vient en train", "ne vient pas en train"],
 		["plane", "avion", "vient en avion", "ne vient pas en avion"],
 		["scooter", "trottinette", "vient en trottinette", "ne vient pas en trottinette"]]},
+	"ferme": {"name": "Animal", "icon": "cow", "values": [
+		["cow", "vache", "élève des vaches", "n'élève pas de vaches"],
+		["pig", "cochon", "élève des cochons", "n'élève pas de cochons"],
+		["sheep", "mouton", "élève des moutons", "n'élève pas de moutons"],
+		["chicken", "poule", "élève des poules", "n'élève pas de poules"],
+		["horse", "cheval", "élève des chevaux", "n'élève pas de chevaux"],
+		["goat", "chèvre", "élève des chèvres", "n'élève pas de chèvres"]]},
+	"produit": {"name": "Produit", "icon": "cheese", "values": [
+		["cheese", "fromage", "vend du fromage", "ne vend pas de fromage"],
+		["egg", "œufs", "vend des œufs", "ne vend pas d'œufs"],
+		["honey", "miel", "vend du miel", "ne vend pas de miel"],
+		["bread", "pain", "vend du pain", "ne vend pas de pain"],
+		["milk", "lait", "vend du lait", "ne vend pas de lait"],
+		["butter", "beurre", "vend du beurre", "ne vend pas de beurre"]]},
+	"outil": {"name": "Outil", "icon": "basket", "values": [
+		["basket", "panier", "porte un panier", "ne porte pas de panier"],
+		["bucket", "seau", "porte un seau", "ne porte pas de seau"],
+		["axe", "hache", "porte une hache", "ne porte pas de hache"],
+		["gloves", "gants", "porte des gants", "ne porte pas de gants"],
+		["broom", "balai", "porte un balai", "ne porte pas de balai"],
+		["scissors", "ciseaux", "porte des ciseaux", "ne porte pas de ciseaux"]]},
+	"plage": {"name": "Activité", "icon": "kite", "values": [
+		["volley", "volley", "joue au volley", "ne joue pas au volley"],
+		["kite", "cerf-volant", "fait du cerf-volant", "ne fait pas de cerf-volant"],
+		["surf", "surf", "fait du surf", "ne fait pas de surf"],
+		["diving", "plongée", "fait de la plongée", "ne fait pas de plongée"],
+		["fishing", "pêche", "va à la pêche", "ne va pas à la pêche"],
+		["swim", "nage", "nage au large", "ne nage pas au large"]]},
+	"gouter": {"name": "Goûter", "icon": "icecream", "values": [
+		["icecream", "glace", "mange une glace", "ne mange pas de glace"],
+		["watermelon", "pastèque", "mange de la pastèque", "ne mange pas de pastèque"],
+		["hotdog", "hot-dog", "mange un hot-dog", "ne mange pas de hot-dog"],
+		["popcorn", "pop-corn", "mange du pop-corn", "ne mange pas de pop-corn"],
+		["sandwich", "sandwich", "mange un sandwich", "ne mange pas de sandwich"],
+		["granita", "granité", "mange un granité", "ne mange pas de granité"]]},
+	"affaire": {"name": "Affaire", "icon": "parasol", "values": [
+		["sunglasses", "lunettes", "a des lunettes de soleil", "n'a pas de lunettes de soleil"],
+		["thongs", "tongs", "porte des tongs", "ne porte pas de tongs"],
+		["parasol", "parasol", "a un parasol", "n'a pas de parasol"],
+		["lotion", "crème", "a de la crème solaire", "n'a pas de crème solaire"],
+		["bucket", "seau", "a un seau", "n'a pas de seau"],
+		["strawhat", "chapeau", "porte un chapeau de paille", "ne porte pas de chapeau de paille"]]},
+	"sauvage": {"name": "Animal", "icon": "fox", "values": [
+		["fox", "renard", "a vu un renard", "n'a pas vu de renard"],
+		["deer", "cerf", "a vu un cerf", "n'a pas vu de cerf"],
+		["owl", "hibou", "a vu un hibou", "n'a pas vu de hibou"],
+		["hedgehog", "hérisson", "a vu un hérisson", "n'a pas vu de hérisson"],
+		["squirrel", "écureuil", "a vu un écureuil", "n'a pas vu d'écureuil"],
+		["bear", "ours", "a vu un ours", "n'a pas vu d'ours"]]},
+	"cueillette": {"name": "Cueillette", "icon": "mushroom", "values": [
+		["mushroom", "champignons", "cueille des champignons", "ne cueille pas de champignons"],
+		["chestnut", "châtaignes", "ramasse des châtaignes", "ne ramasse pas de châtaignes"],
+		["blueberry", "myrtilles", "cueille des myrtilles", "ne cueille pas de myrtilles"],
+		["strawberry", "fraises", "cueille des fraises des bois", "ne cueille pas de fraises des bois"],
+		["herb", "herbes", "cueille des herbes", "ne cueille pas d'herbes"],
+		["leaves", "feuilles", "ramasse des feuilles", "ne ramasse pas de feuilles"]]},
+	"equipement": {"name": "Équipement", "icon": "backpack", "values": [
+		["flashlight", "lampe", "a une lampe", "n'a pas de lampe"],
+		["compass", "boussole", "a une boussole", "n'a pas de boussole"],
+		["map", "carte", "a une carte", "n'a pas de carte"],
+		["backpack", "sac", "a un sac à dos", "n'a pas de sac à dos"],
+		["rope", "corde", "a une corde", "n'a pas de corde"],
+		["log", "bûche", "porte une bûche", "ne porte pas de bûche"]]},
+	"hiver": {"name": "Activité", "icon": "ski", "values": [
+		["ski", "ski", "fait du ski", "ne fait pas de ski"],
+		["snowboard", "snowboard", "fait du snowboard", "ne fait pas de snowboard"],
+		["sled", "luge", "fait de la luge", "ne fait pas de luge"],
+		["skate", "patin", "fait du patin", "ne fait pas de patin"],
+		["climb", "escalade", "fait de l'escalade", "ne fait pas d'escalade"],
+		["hiking", "randonnée", "fait de la randonnée", "ne fait pas de randonnée"]]},
+	"plat": {"name": "Plat", "icon": "fondue", "values": [
+		["fondue", "fondue", "mange une fondue", "ne mange pas de fondue"],
+		["soup", "soupe", "mange une soupe", "ne mange pas de soupe"],
+		["pretzel", "bretzel", "mange un bretzel", "ne mange pas de bretzel"],
+		["chocolate", "chocolat", "boit un chocolat chaud", "ne boit pas de chocolat chaud"],
+		["waffle", "gaufre", "mange une gaufre", "ne mange pas de gaufre"],
+		["pancakes", "crêpes", "mange des crêpes", "ne mange pas de crêpes"]]},
+	"tenue": {"name": "Tenue", "icon": "scarf", "values": [
+		["scarf", "écharpe", "porte une écharpe", "ne porte pas d'écharpe"],
+		["gloves", "gants", "porte des gants", "ne porte pas de gants"],
+		["cap", "casquette", "porte une casquette", "ne porte pas de casquette"],
+		["goggles", "masque", "porte un masque de ski", "ne porte pas de masque de ski"],
+		["coat", "manteau", "porte un manteau", "ne porte pas de manteau"],
+		["boots", "bottes", "porte des bottes", "ne porte pas de bottes"]]},
+	"jouet": {"name": "Jouet", "icon": "teddy", "values": [
+		["teddy", "nounours", "garde un nounours", "ne garde pas de nounours"],
+		["yoyo", "yo-yo", "garde un yo-yo", "ne garde pas de yo-yo"],
+		["dice", "dés", "garde des dés", "ne garde pas de dés"],
+		["puzzle", "puzzle", "garde un puzzle", "ne garde pas de puzzle"],
+		["robot", "robot", "garde un robot", "ne garde pas de robot"],
+		["doll", "poupée", "garde une poupée russe", "ne garde pas de poupée russe"]]},
+	"loisir": {"name": "Loisir", "icon": "palette", "values": [
+		["palette", "peinture", "fait de la peinture", "ne fait pas de peinture"],
+		["yarn", "tricot", "tricote", "ne tricote pas"],
+		["books", "lecture", "lit des romans", "ne lit pas de romans"],
+		["chess", "échecs", "joue aux échecs", "ne joue pas aux échecs"],
+		["sewing", "couture", "fait de la couture", "ne fait pas de couture"],
+		["camera", "photo", "fait de la photo", "ne fait pas de photo"]]},
+	"trouvaille": {"name": "Trouvaille", "icon": "oldkey", "values": [
+		["clock", "horloge", "a trouvé une horloge", "n'a pas trouvé d'horloge"],
+		["letter", "lettre", "a trouvé une lettre", "n'a pas trouvé de lettre"],
+		["oldkey", "clé", "a trouvé une vieille clé", "n'a pas trouvé de vieille clé"],
+		["radio", "radio", "a trouvé une radio", "n'a pas trouvé de radio"],
+		["crystal", "boule", "a trouvé une boule de cristal", "n'a pas trouvé de boule de cristal"],
+		["mirror", "miroir", "a trouvé un miroir", "n'a pas trouvé de miroir"]]},
 }
 
 const WORLDS := [
@@ -146,23 +257,48 @@ const WORLDS := [
 		"sky": "#bfe8a8", "ground": "#f4f0d0", "accent": "#4fa35a", "path": "#e8c98a",
 		"decor": ["tree", "sunflower", "butterfly", "bee", "mushroom", "herb", "tulip", "pine"],
 		"trophy": "Main verte"},
+	{"id": "ferme", "name": "La Ferme", "icon": "tractor", "tagline": "Bottes, foin et bonne humeur",
+		"cats": ["ferme", "produit", "outil"], "ordered": [], "ordered_chance": 0.0, "pair": false, "stars_needed": 10,
+		"sky": "#d6ec9f", "ground": "#f7efd2", "accent": "#c4572f", "path": "#e2bf7c",
+		"decor": ["cow", "pig", "sheep", "chicken", "tractor", "barn", "corn", "egg"],
+		"trophy": "Fermier"},
 	{"id": "cafe", "name": "Le Café", "icon": "coffee", "tagline": "Commandes et gourmandises",
-		"cats": ["boisson", "dessert", "fruit"], "ordered": [], "ordered_chance": 0.0, "pair": false, "stars_needed": 18,
+		"cats": ["boisson", "dessert", "fruit"], "ordered": [], "ordered_chance": 0.0, "pair": false, "stars_needed": 20,
 		"sky": "#ffd9b0", "ground": "#fbeedd", "accent": "#c06b34", "path": "#d9a877",
 		"decor": ["coffee", "croissant", "cupcake", "heart", "donut", "sparkles", "cake", "tea"],
 		"trophy": "Barista"},
+	{"id": "plage", "name": "La Plage", "icon": "parasol", "tagline": "Sable chaud et glaces",
+		"cats": ["plage", "gouter", "affaire"], "ordered": [], "ordered_chance": 0.0, "pair": true, "stars_needed": 32,
+		"sky": "#9fe4ec", "ground": "#fff4d8", "accent": "#e8792f", "path": "#f4d495",
+		"decor": ["palm", "parasol", "shell", "icecream", "kite", "wave", "sun", "watermelon"],
+		"trophy": "Maître nageur"},
 	{"id": "port", "name": "Le Port", "icon": "anchor", "tagline": "Embruns et bateaux",
-		"cats": ["bateau", "marin", "maison"], "ordered": ["age"], "ordered_chance": 0.3, "pair": true, "stars_needed": 40,
+		"cats": ["bateau", "marin", "maison"], "ordered": ["age"], "ordered_chance": 0.3, "pair": true, "stars_needed": 44,
 		"sky": "#aee0f7", "ground": "#e4f4fb", "accent": "#2a7fb8", "path": "#f2dfa8",
 		"decor": ["wave", "shell", "sailboat", "fish", "crab", "anchor", "whale", "dolphin"],
 		"trophy": "Capitaine"},
+	{"id": "foret", "name": "La Forêt", "icon": "fox", "tagline": "Sentiers et petites bêtes",
+		"cats": ["sauvage", "cueillette", "equipement"], "ordered": ["age"], "ordered_chance": 0.4, "pair": true, "stars_needed": 58,
+		"sky": "#b9dfb2", "ground": "#e7f0da", "accent": "#2e7a5c", "path": "#cfa77c",
+		"decor": ["pine", "tree", "fox", "owl", "mushroom", "leaves", "hedgehog", "squirrel"],
+		"trophy": "Garde forestier"},
 	{"id": "festival", "name": "Le Festival", "icon": "tent", "tagline": "Musique, sport et chapeaux",
-		"cats": ["instrument", "sport", "chapeau"], "ordered": ["street"], "ordered_chance": 0.5, "pair": true, "stars_needed": 65,
+		"cats": ["instrument", "sport", "chapeau"], "ordered": ["street"], "ordered_chance": 0.5, "pair": true, "stars_needed": 72,
 		"sky": "#ffc6dc", "ground": "#fde9f1", "accent": "#c43d7c", "path": "#f8d27a",
 		"decor": ["balloon", "tent", "ferris", "carousel", "fireworks", "music", "party", "sparkles"],
 		"trophy": "Maestro"},
+	{"id": "montagne", "name": "La Montagne", "icon": "mountain", "tagline": "Neige, luge et fondue",
+		"cats": ["hiver", "plat", "tenue"], "ordered": ["street"], "ordered_chance": 0.5, "pair": true, "stars_needed": 88,
+		"sky": "#cde2f8", "ground": "#f3f8fd", "accent": "#3a6db5", "path": "#b9cde4",
+		"decor": ["mountain", "snowflake", "snowman", "ski", "sled", "pine", "fondue", "scarf"],
+		"trophy": "Premier de cordée"},
+	{"id": "grenier", "name": "Le Grenier", "icon": "teddy", "tagline": "Trésors et vieux jouets",
+		"cats": ["jouet", "loisir", "trouvaille"], "ordered": ["age", "street"], "ordered_chance": 0.6, "pair": true, "stars_needed": 104,
+		"sky": "#ebd2ad", "ground": "#f8ecd9", "accent": "#9659b3", "path": "#d6b289",
+		"decor": ["teddy", "yoyo", "dice", "books", "clock", "candle", "crystal", "doll"],
+		"trophy": "Antiquaire"},
 	{"id": "observatoire", "name": "L'Observatoire", "icon": "telescope", "tagline": "Les énigmes des étoiles",
-		"cats": ["astre", "transport"], "ordered": ["age", "street"], "ordered_chance": 1.0, "pair": true, "stars_needed": 90,
+		"cats": ["astre", "transport"], "ordered": ["age", "street"], "ordered_chance": 1.0, "pair": true, "stars_needed": 120,
 		"sky": "#3b3878", "ground": "#5a4f9e", "accent": "#7c6cf0", "path": "#c9b8ff", "dark": true,
 		"decor": ["moon2", "rocket", "milkyway", "sparkles", "glow", "star", "comet", "telescope"],
 		"trophy": "Astronome"},
@@ -179,15 +315,15 @@ static func level_size(w: int, l: int) -> Array:
 		return BOSS_SIZE[w]
 	match w:
 		0:
-			if l <= 3:
-				return [3, 3]
-			return [3, 4]
+			return [3, 3] if l <= 3 else [3, 4]
 		1:
-			return [3, 4] if l <= 5 else [4, 4]
+			return [3, 4]
 		2:
+			return [3, 4] if l <= 4 else [4, 4]
+		3, 4:
 			return [4, 4]
-		3:
-			return [4, 4] if l <= 7 else [4, 5]
+		5:
+			return [4, 4] if l <= 4 else [4, 5]
 	return [4, 5]
 
 

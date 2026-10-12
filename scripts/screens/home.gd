@@ -173,8 +173,10 @@ func _worlds_card() -> Control:
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(t)
 	head.add_child(UI.label("%d trophées · %d étoiles" % [Game.data.achievements.size(), Game.total_stars()], 20, UI.INK_SOFT))
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 6)
+	var row := GridContainer.new()
+	row.columns = 5
+	row.add_theme_constant_override("h_separation", 6)
+	row.add_theme_constant_override("v_separation", 8)
 	v.add_child(row)
 	for w in Worlds.world_count():
 		var cell := VBoxContainer.new()
@@ -183,13 +185,13 @@ func _worlds_card() -> Control:
 		row.add_child(cell)
 		var unlocked := Game.is_world_unlocked(w)
 		var holder := CenterContainer.new()
-		holder.custom_minimum_size.y = 76
+		holder.custom_minimum_size.y = 64
 		cell.add_child(holder)
-		var ic := UI.icon_rect(Worlds.WORLDS[w].icon if unlocked else "lock", 64)
+		var ic := UI.icon_rect(Worlds.WORLDS[w].icon if unlocked else "lock", 54)
 		if not unlocked:
 			ic.modulate = Color(1, 1, 1, 0.55)
 		holder.add_child(ic)
-		var txt := "%d/45" % Game.world_stars(w) if unlocked else "%d" % int(Worlds.WORLDS[w].stars_needed)
+		var txt := "%d/%d" % [Game.world_stars(w), Worlds.LEVELS_PER_WORLD * 3] if unlocked else "%d" % int(Worlds.WORLDS[w].stars_needed)
 		var line := HBoxContainer.new()
 		line.alignment = BoxContainer.ALIGNMENT_CENTER
 		line.add_theme_constant_override("separation", 2)

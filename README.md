@@ -8,13 +8,13 @@ vérifiée par un solveur avant d'être proposée.
 
 ## Jouer
 
-- **Le parcours** : un chemin qui traverse cinq quartiers (Jardin, Café, Port, Festival,
-  Observatoire), 15 niveaux chacun, avec leurs catégories et leurs décors. Un coffre au trésor
-  tous les 5 niveaux. Chaque quartier s'ouvre en finissant le précédent et en réunissant assez d'étoiles.
+- **Le parcours** : un chemin qui traverse dix quartiers courts (Jardin, Ferme, Café, Plage, Port,
+  Forêt, Festival, Montagne, Grenier, Observatoire), 8 niveaux chacun dont une grande énigme finale,
+  avec leurs catégories et leurs décors. Un coffre au trésor tous les 4 niveaux. Chaque quartier s'ouvre en finissant le précédent et en réunissant assez d'étoiles.
 - **Niveaux spéciaux** : *Sans faute* (3 cœurs, une pastille mal placée en coûte un),
   *Contre-la-montre* (sablier), *Indices scellés* (chaque bonne pastille donne une clé pour ouvrir
   un indice caché), parfois combinés. Bonus de pièces à la clé.
-- **Grande énigme** au niveau 15 de chaque quartier : jusqu'à 5 catégories, couronne et gros coffre.
+- **Grande énigme** au dernier niveau de chaque quartier : jusqu'à 5 catégories, couronne et gros coffre.
 - **Nouveaux indices** au fil des quartiers : « Parmi X et Y, l'une… et l'autre… » (Port),
   la rue numérotée avec « à gauche de », « juste à droite de », « à côté de » (Festival).
 - **Étoiles** : 1 pour la grille résolue, 1 sans Loupe ni Éclair, 1 sous le temps de référence.
