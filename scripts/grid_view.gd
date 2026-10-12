@@ -36,7 +36,9 @@ var _cell := 40.0
 var _label_w := 120.0
 var _font: Font
 var _font_bold: Font
-var _font_size := 16
+## Taille unique de tout le texte de la grille (libellés, initiales, pastilles chiffrées), quel que soit le niveau.
+const FONT_SIZE := 18
+var _font_size := FONT_SIZE
 var _hover := Vector2i(-1, -1)
 var _anims := {}         # "a_b:idx" -> instant de départ (s)
 var _glow := {}          # "a_b:idx" -> instant de départ (s)
@@ -102,10 +104,18 @@ func _process(delta: float) -> void:
 func _relayout() -> void:
 	var cols := _col_cats.size() * _n
 	var w := size.x
-	# La zone des libellés vaut environ 2,8 cases.
+	# La zone des libellés vaut environ 2,8 cases, et s'élargit si le plus long libellé n'y tient pas.
 	_cell = floor(w / (cols + 2.8))
+	var longest := 0.0
+	for c in pz.cats:
+		for v in c.values:
+			longest = max(longest, _font.get_string_size(v.short, HORIZONTAL_ALIGNMENT_LEFT, -1, _font_size).x)
+	for _i in 8:
+		var ic: float = min(_cell * 0.72, 44.0)
+		if w - cols * _cell >= longest + ic + 22 or _cell <= 24:
+			break
+		_cell -= 1
 	_label_w = w - cols * _cell
-	_font_size = int(clamp(_cell * 0.32, 13, 24))
 	custom_minimum_size.y = _label_w + _row_cats.size() * _n * _cell + 4
 
 
@@ -479,15 +489,19 @@ func _draw_value_icon(v: Dictionary, c: Vector2, sz: float) -> void:
 	if v.has("avatar"):
 		draw_circle(c, sz * 0.48, Color(v.avatar))
 		var ch: String = String(v.short).substr(0, 1)
-		var fs := int(sz * 0.55)
+		var fs := _font_size
 		var w := _font_bold.get_string_size(ch, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 		draw_string(_font_bold, c + Vector2(-w * 0.5, _font_bold.get_ascent(fs) * 0.36), ch, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)
 		return
 	if v.has("num"):
 		draw_circle(c, sz * 0.48, Color(v.num_color))
 		var txt: String = v.num
-		var fs := int(sz * 0.45)
+		var fs := _font_size
 		var w := _font_bold.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		# Sur les très petites cases seulement, le chiffre rétrécit pour rester dans sa pastille.
+		if w > sz * 0.82:
+			fs = int(fs * sz * 0.82 / w)
+			w = _font_bold.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 		draw_string(_font_bold, c + Vector2(-w * 0.5, _font_bold.get_ascent(fs) * 0.36), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, COL_TEXT)
 		return
 	var tex := UI.icon(v.get("icon", ""))

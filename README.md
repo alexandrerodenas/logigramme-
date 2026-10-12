@@ -34,7 +34,7 @@ vérifiée par un solveur avant d'être proposée.
 
 ## Installer l'APK
 
-[Télécharger logigramme-2.3.1.apk](https://github.com/alexandrerodenas/logigramme-/raw/main/apk/logigramme-2.3.1.apk)
+[Télécharger logigramme-2.3.2.apk](https://github.com/alexandrerodenas/logigramme-/raw/main/apk/logigramme-2.3.2.apk)
 (dossier `apk/` du dépôt) depuis le téléphone, l'ouvrir, puis autoriser l'installation
 d'applications depuis cette source quand Android le demande.
 
