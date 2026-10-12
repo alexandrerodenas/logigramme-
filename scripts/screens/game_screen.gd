@@ -358,8 +358,6 @@ func _on_marked(kind: int, cell: Array) -> void:
 			Sfx.play("cross", randf_range(0.95, 1.05))
 		GridView.CHECK:
 			Sfx.play("check")
-		GridView.QUESTION:
-			Sfx.play("tap", 1.3)
 		_:
 			Sfx.play("erase")
 	Sfx.buzz(12)
@@ -513,7 +511,7 @@ func _shake(c: Control) -> void:
 func _tutorial() -> void:
 	var steps := [
 		["detective", "Ta première enquête", "Chaque habitant a exactement une valeur dans chaque catégorie, et jamais la même qu'un autre. À toi de trouver qui va avec quoi grâce aux indices."],
-		["puzzle", "La grille", "Touche une case une fois pour une croix (impossible), deux fois pour une pastille verte (c'est bien ça !), trois fois pour un « ? » (une piste à creuser, comptée comme vide), quatre fois pour la vider. Tu poses toi-même chaque croix, et une seule pastille est permise par ligne et par colonne d'un bloc. Le balai efface toute la grille, la roue dentée ouvre les réglages."],
+		["puzzle", "La grille", "Touche une case une fois pour une croix (impossible), deux fois pour une pastille verte (c'est bien ça !), trois fois pour la vider. Tu poses toi-même chaque croix, et une seule pastille est permise par ligne et par colonne d'un bloc. Le balai efface toute la grille, la roue dentée ouvre les réglages."],
 		["coin", "Étoiles et pièces", "Résous vite et sans aide pour gagner 3 étoiles. Les pièces gagnées servent à acheter des aides quand tu bloques."],
 	]
 	_tutorial_step(steps, 0)

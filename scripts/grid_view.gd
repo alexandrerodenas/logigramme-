@@ -1,7 +1,7 @@
 class_name GridView
 extends Control
 ## Grille de logigramme en escalier : chaque bloc croise deux catégories.
-## Un appui fait défiler une case : vide → croix → pastille → ? → vide.
+## Un appui fait défiler une case : vide → croix → pastille → vide.
 
 signal changed
 signal solved
@@ -12,7 +12,6 @@ signal marked(kind: int, cell: Array)
 const EMPTY := 0
 const CROSS := 1
 const CHECK := 2
-const QUESTION := 3      # marque d'aide du joueur, comptée comme une case vide
 
 const COL_BG := Color("fffdf8")
 const COL_BG_ALT := Color("fbf3e6")
@@ -66,7 +65,8 @@ func setup(puzzle: Dictionary, saved_marks: Dictionary = {}) -> void:
 			if saved_marks.has(key):
 				var src: Array = saved_marks[key]
 				for i in min(src.size(), arr.size()):
-					arr[i] = int(src[i])
+					var m := int(src[i])
+					arr[i] = m if m <= CHECK else EMPTY
 			marks[key] = arr
 	undo_stack.clear()
 	errors.clear()
@@ -187,7 +187,7 @@ func _tap(hit: Array) -> void:
 	var cc: int = hit[2]
 	var cv: int = hit[3]
 	var cur := get_mark(rc, rv, cc, cv)
-	var nxt := (cur + 1) % 4
+	var nxt := (cur + 1) % 3
 	var action: Array = []
 	_set_mark(rc, rv, cc, cv, nxt, action)
 	if nxt == CHECK:
@@ -217,7 +217,7 @@ func _exclude(rc: int, rv: int, cc: int, cv: int, action: Array) -> void:
 
 
 static func is_blank(m: int) -> bool:
-	return m == EMPTY or m == QUESTION
+	return m == EMPTY
 
 
 func _commit(action: Array) -> void:
@@ -477,8 +477,6 @@ func _draw() -> void:
 						_draw_cross(p, s)
 					elif m == CHECK:
 						_draw_check(p, s)
-					elif m == QUESTION:
-						_draw_question(p, s)
 
 	# Contours arrondis des blocs, couleur du monde.
 	for rg in n_rows:
@@ -559,11 +557,3 @@ func _draw_check(p: Vector2, s: float) -> void:
 	var pts := PackedVector2Array([c + Vector2(-0.45, 0.02) * r, c + Vector2(-0.1, 0.36) * r, c + Vector2(0.48, -0.32) * r])
 	draw_polyline(pts, Color.WHITE, max(2.0, _cell * 0.08), true)
 
-
-func _draw_question(p: Vector2, s: float) -> void:
-	var fs := int(_cell * 0.62 * s)
-	if fs < 4:
-		return
-	var w := _font_bold.get_string_size("?", HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-	var c := p + Vector2(_cell, _cell) * 0.5
-	draw_string(_font_bold, c + Vector2(-w * 0.5, _font_bold.get_ascent(fs) * 0.36), "?", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("5f8fe0"))
