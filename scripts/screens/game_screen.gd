@@ -65,6 +65,9 @@ func _ready() -> void:
 	var back_btn := UI.button("", Color.WHITE, "map", 28, UI.INK)
 	back_btn.pressed.connect(back)
 	top.add_child(back_btn)
+	var clear_btn := UI.button("", Color.WHITE, "broom", 28, UI.INK)
+	clear_btn.pressed.connect(_ask_clear)
+	top.add_child(clear_btn)
 	var title := HBoxContainer.new()
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -74,7 +77,11 @@ func _ready() -> void:
 	var boss: bool = cfg.get("boss", false)
 	title.add_child(UI.icon_rect("calendar" if cfg.get("daily", false) else ("crown" if boss else w_def.icon), 44))
 	var t_text := "Défi du jour" if cfg.get("daily", false) else ("Grande énigme" if boss else "Niveau %d" % cfg.level)
-	title.add_child(UI.label(t_text, 32, UI.INK, 700))
+	var t_lbl := UI.label(t_text, 30, UI.INK, 700)
+	t_lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	t_lbl.clip_text = true
+	t_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.add_child(t_lbl)
 	_timer_pill = UI.pill("timer", "0:00")
 	top.add_child(_timer_pill)
 	_coins = UI.pill("coin", str(Game.coins()))
@@ -346,6 +353,8 @@ func _on_marked(kind: int, cell: Array) -> void:
 			Sfx.play("cross", randf_range(0.95, 1.05))
 		GridView.CHECK:
 			Sfx.play("check")
+		GridView.QUESTION:
+			Sfx.play("tap", 1.3)
 		_:
 			Sfx.play("erase")
 	Sfx.buzz(12)
@@ -486,7 +495,7 @@ func _shake(c: Control) -> void:
 func _tutorial() -> void:
 	var steps := [
 		["detective", "Ta première enquête", "Chaque habitant a exactement une valeur dans chaque catégorie, et jamais la même qu'un autre. À toi de trouver qui va avec quoi grâce aux indices."],
-		["puzzle", "La grille", "Touche une case une fois pour une croix (impossible), deux fois pour une pastille verte (c'est bien ça !), trois fois pour l'effacer. Une pastille barre le reste de sa ligne et de sa colonne."],
+		["puzzle", "La grille", "Touche une case une fois pour une croix (impossible), deux fois pour une pastille verte (c'est bien ça !), trois fois pour un « ? » (une piste à creuser, comptée comme vide), quatre fois pour la vider. Une pastille barre le reste de sa ligne et de sa colonne, et une seule pastille est permise par ligne et par colonne d'un bloc. Le balai efface toute la grille."],
 		["coin", "Étoiles et pièces", "Résous vite et sans aide pour gagner 3 étoiles. Les pièces gagnées servent à acheter des aides quand tu bloques."],
 	]
 	_tutorial_step(steps, 0)
@@ -821,3 +830,17 @@ func _show_queue(queue: Array, i: int) -> void:
 	var q: Array = queue[i]
 	Sfx.play("unlock")
 	main.message(q[0], q[1], q[2], [["Compris !", UI.CORAL, func(): _show_queue(queue, i + 1)]], false)
+
+
+## Efface toutes les marques et les indices rayés pour repartir de zéro (annulable).
+func _ask_clear() -> void:
+	if puzzle.is_empty() or finished:
+		return
+	main.message("broom", "Effacer la grille ?", "Toutes tes marques et les indices rayés seront retirés. Le chrono, les cœurs et les clés ne changent pas.",
+		[["Garder", UI.SKY], ["Effacer", UI.CORAL, func():
+			_grid.clear_all()
+			struck.clear()
+			for i in _clue_nodes:
+				_render_clue(i, true)
+			Sfx.play("whoosh")
+			_save_progress()]])

@@ -1,7 +1,7 @@
 class_name GridView
 extends Control
 ## Grille de logigramme en escalier : chaque bloc croise deux catégories.
-## Un appui fait défiler une case : vide → croix → pastille → vide.
+## Un appui fait défiler une case : vide → croix → pastille → ? → vide.
 
 signal changed
 signal solved
@@ -10,6 +10,7 @@ signal marked(kind: int, cell: Array)
 const EMPTY := 0
 const CROSS := 1
 const CHECK := 2
+const QUESTION := 3      # marque d'aide du joueur, comptée comme une case vide
 
 const COL_BG := Color("fffdf8")
 const COL_BG_ALT := Color("fbf3e6")
@@ -172,11 +173,20 @@ func _tap(hit: Array) -> void:
 	var cc: int = hit[2]
 	var cv: int = hit[3]
 	var cur := get_mark(rc, rv, cc, cv)
-	var nxt := (cur + 1) % 3
+	var nxt := (cur + 1) % 4
 	var action: Array = []
 	_set_mark(rc, rv, cc, cv, nxt, action)
 	if nxt == CHECK:
+		# Une seule pastille par ligne et par colonne d'un bloc : l'ancienne est retirée.
+		var old: Array = []
+		for v in _n:
+			if v != cv and get_mark(rc, rv, cc, v) == CHECK:
+				old.append([rv, v])
+			if v != rv and get_mark(rc, v, cc, cv) == CHECK:
+				old.append([v, cv])
 		_exclude(rc, rv, cc, cv, action)
+		for o in old:
+			_set_mark(rc, o[0], cc, o[1], EMPTY, action)
 	_hover = Vector2i(hit[4] * _n + rv, hit[5] * _n + cv)
 	_commit(action)
 	marked.emit(nxt, [rc, rv, cc, cv])
@@ -185,10 +195,14 @@ func _tap(hit: Array) -> void:
 ## Un ✓ exclut le reste de sa ligne et de sa colonne dans ce bloc.
 func _exclude(rc: int, rv: int, cc: int, cv: int, action: Array) -> void:
 	for v in _n:
-		if v != cv and get_mark(rc, rv, cc, v) == EMPTY:
+		if v != cv and is_blank(get_mark(rc, rv, cc, v)):
 			_set_mark(rc, rv, cc, v, CROSS, action)
-		if v != rv and get_mark(rc, v, cc, cv) == EMPTY:
+		if v != rv and is_blank(get_mark(rc, v, cc, cv)):
 			_set_mark(rc, v, cc, cv, CROSS, action)
+
+
+static func is_blank(m: int) -> bool:
+	return m == EMPTY or m == QUESTION
 
 
 func _commit(action: Array) -> void:
@@ -267,7 +281,7 @@ func check_errors() -> int:
 		var b := int(ab[1])
 		var arr: PackedByteArray = marks[k]
 		for i in arr.size():
-			if arr[i] == EMPTY:
+			if is_blank(arr[i]):
 				continue
 			var ok := PuzzleGenerator.is_match(pz, a, i / _n, b, i % _n)
 			if (arr[i] == CHECK) != ok:
@@ -323,7 +337,7 @@ func apply_simple_clues() -> int:
 						_set_mark(a[0], a[1], b[0], v, CROSS, action)
 					if v != a[1]:
 						_set_mark(a[0], v, b[0], b[1], CROSS, action)
-		elif get_mark(a[0], a[1], b[0], b[1]) == EMPTY:
+		elif is_blank(get_mark(a[0], a[1], b[0], b[1])):
 			_set_mark(a[0], a[1], b[0], b[1], CROSS, action)
 		for i in range(before, action.size()):
 			_glow["%s:%d" % [action[i][0], action[i][1]]] = _time
@@ -353,7 +367,7 @@ func fill_ratio() -> float:
 		var arr: PackedByteArray = marks[k]
 		total += arr.size()
 		for v in arr:
-			if v != EMPTY:
+			if not is_blank(v):
 				filled += 1
 	return float(filled) / max(1, total)
 
@@ -424,6 +438,8 @@ func _draw() -> void:
 						_draw_cross(p, s)
 					elif m == CHECK:
 						_draw_check(p, s)
+					elif m == QUESTION:
+						_draw_question(p, s)
 
 	# Contours arrondis des blocs, couleur du monde.
 	for rg in n_rows:
@@ -499,3 +515,12 @@ func _draw_check(p: Vector2, s: float) -> void:
 	draw_circle(c, r, COL_CHECK)
 	var pts := PackedVector2Array([c + Vector2(-0.45, 0.02) * r, c + Vector2(-0.1, 0.36) * r, c + Vector2(0.48, -0.32) * r])
 	draw_polyline(pts, Color.WHITE, max(2.0, _cell * 0.08), true)
+
+
+func _draw_question(p: Vector2, s: float) -> void:
+	var fs := int(_cell * 0.62 * s)
+	if fs < 4:
+		return
+	var w := _font_bold.get_string_size("?", HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var c := p + Vector2(_cell, _cell) * 0.5
+	draw_string(_font_bold, c + Vector2(-w * 0.5, _font_bold.get_ascent(fs) * 0.36), "?", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("5f8fe0"))

@@ -22,13 +22,15 @@ vérifiée par un solveur avant d'être proposée.
   Vérifier (10, montre les erreurs), Loupe (25, révèle une association), Éclair (40, applique les
   indices simples). Loupe et Éclair se débloquent au fil du Jardin.
 - **Rangs** d'Apprenti à Légende grâce à l'expérience, **22 trophées**, **défi du jour** avec série.
-- Un appui sur une case : croix (impossible), puis pastille verte (certain), puis vide.
-  Une pastille barre le reste de sa ligne et de sa colonne. Un appui sur un indice le grise.
+- Un appui sur une case : croix (impossible), puis pastille verte (certain), puis « ? » (piste
+  personnelle, comptée comme vide), puis vide. Une pastille barre le reste de sa ligne et de sa
+  colonne ; une seule pastille par ligne et par colonne d'un bloc (la précédente est retirée).
+  Le balai efface toute la grille (annulable). Un appui sur un indice le grise.
 - Sons et musique synthétisés sur l'appareil, vibrations, réglages, sauvegarde automatique.
 
 ## Installer l'APK
 
-Copier `logigramme-2.1.0.apk` sur le téléphone, l'ouvrir, puis autoriser l'installation
+Copier `logigramme-2.2.0.apk` sur le téléphone, l'ouvrir, puis autoriser l'installation
 d'applications depuis cette source quand Android le demande.
 
 ## Structure
