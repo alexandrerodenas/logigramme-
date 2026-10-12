@@ -32,6 +32,11 @@ const ACHIEVEMENTS := [
 	{"id": "fast", "icon": "eclair", "name": "Éclair de génie", "desc": "Finir une grille en moins de la moitié du temps.", "stat": "fast", "goal": 1, "coins": 40},
 	{"id": "stars50", "icon": "star", "name": "Collectionneur", "desc": "Réunir 50 étoiles.", "stat": "stars", "goal": 50, "coins": 60},
 	{"id": "stars150", "icon": "medal", "name": "Constellation", "desc": "Réunir 150 étoiles.", "stat": "stars", "goal": 150, "coins": 150},
+	{"id": "boss1", "icon": "crown2", "name": "Tombeur de boss", "desc": "Résoudre une grande énigme de fin de quartier.", "stat": "bosses", "goal": 1, "coins": 50},
+	{"id": "boss5", "icon": "crown", "name": "Grand maître", "desc": "Résoudre les 5 grandes énigmes.", "stat": "bosses", "goal": 5, "coins": 200},
+	{"id": "flawless", "icon": "heart", "name": "Cœur vaillant", "desc": "Finir un niveau Sans faute sans perdre un seul cœur.", "stat": "flawless", "goal": 1, "coins": 40},
+	{"id": "chrono3", "icon": "timer", "name": "Course contre la montre", "desc": "Gagner 3 niveaux Contre-la-montre.", "stat": "chrono", "goal": 3, "coins": 60},
+	{"id": "fog3", "icon": "key", "name": "Serrurier", "desc": "Gagner 3 niveaux à indices scellés.", "stat": "fog", "goal": 3, "coins": 60},
 	{"id": "daily1", "icon": "calendar", "name": "Rendez-vous", "desc": "Réussir un défi du jour.", "stat": "daily_done", "goal": 1, "coins": 20},
 	{"id": "streak3", "icon": "fire", "name": "Habitué", "desc": "Réussir le défi du jour 3 jours de suite.", "stat": "best_streak", "goal": 3, "coins": 50},
 	{"id": "streak7", "icon": "fire", "name": "Fidèle", "desc": "Réussir le défi du jour 7 jours de suite.", "stat": "best_streak", "goal": 7, "coins": 120},
@@ -57,7 +62,7 @@ func _default() -> Dictionary:
 		"stats": {"solved": 0, "three_star": 0, "no_aid": 0, "fast": 0, "daily_done": 0, "best_streak": 0},
 		"achievements": {},
 		"settings": {"sound": true, "music": true, "vibration": true},
-		"tutorial": false, "seen_aids": {}, "seen_worlds": {"0": true},
+		"tutorial": false, "seen_aids": {}, "seen_worlds": {"0": true}, "seen_intros": {},
 	}
 
 
@@ -194,7 +199,7 @@ func set_current(key: String, state: Dictionary) -> void:
 # --- Fin de grille ------------------------------------------------------------
 
 ## Enregistre une grille résolue et renvoie le détail des récompenses.
-func complete(cfg: Dictionary, time_s: float, used_aid: bool, par: int) -> Dictionary:
+func complete(cfg: Dictionary, time_s: float, used_aid: bool, par: int, extra: Dictionary = {}) -> Dictionary:
 	var stars := 1
 	if not used_aid:
 		stars += 1
@@ -202,7 +207,7 @@ func complete(cfg: Dictionary, time_s: float, used_aid: bool, par: int) -> Dicti
 		stars += 1
 	var r := {"stars": stars, "coins": 0, "xp": 0, "chest": 0, "time": time_s, "par": par,
 		"no_aid": not used_aid, "fast": time_s <= par, "new_aids": [], "achievements": [],
-		"rank_before": rank_index(), "world_unlocked": -1, "first": false, "streak": 0}
+		"rank_before": rank_index(), "world_unlocked": -1, "first": false, "streak": 0, "mod_bonus": 0}
 	var aids_before := {}
 	for id in AIDS:
 		aids_before[id] = is_aid_unlocked(id)
@@ -235,8 +240,10 @@ func complete(cfg: Dictionary, time_s: float, used_aid: bool, par: int) -> Dicti
 			r.coins += 10 + 5 * stars
 			r.xp += 20 + 10 * stars
 			if l % Worlds.CHEST_EVERY == 0:
-				r.chest = 40 + 20 * w
+				r.chest = 40 + 20 * w + (60 if cfg.get("boss", false) else 0)
 				r.coins += r.chest
+			r.mod_bonus = 15 * cfg.get("mods", []).size()
+			r.coins += r.mod_bonus
 			data.levels[key] = {"stars": stars, "time": time_s}
 		else:
 			r.coins += 3 + 5 * max(0, stars - prev)
@@ -255,6 +262,15 @@ func complete(cfg: Dictionary, time_s: float, used_aid: bool, par: int) -> Dicti
 	if time_s <= par * 0.5:
 		st.fast = int(st.fast) + 1
 	st.stars = total_stars()
+	var mods: Array = cfg.get("mods", [])
+	if cfg.get("boss", false):
+		st.bosses = int(st.get("bosses", 0)) + 1
+	if mods.has("hearts") and int(extra.get("hearts_lost", 1)) == 0:
+		st.flawless = int(st.get("flawless", 0)) + 1
+	if mods.has("chrono"):
+		st.chrono = int(st.get("chrono", 0)) + 1
+	if mods.has("fog"):
+		st.fog = int(st.get("fog", 0)) + 1
 
 	data.coins = coins() + r.coins
 	data.xp = int(data.xp) + r.xp

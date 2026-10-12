@@ -11,18 +11,24 @@ vérifiée par un solveur avant d'être proposée.
 - **Le parcours** : un chemin qui traverse cinq quartiers (Jardin, Café, Port, Festival,
   Observatoire), 15 niveaux chacun, avec leurs catégories et leurs décors. Un coffre au trésor
   tous les 5 niveaux. Chaque quartier s'ouvre en finissant le précédent et en réunissant assez d'étoiles.
+- **Niveaux spéciaux** : *Sans faute* (3 cœurs, une pastille mal placée en coûte un),
+  *Contre-la-montre* (sablier), *Indices scellés* (chaque bonne pastille donne une clé pour ouvrir
+  un indice caché), parfois combinés. Bonus de pièces à la clé.
+- **Grande énigme** au niveau 15 de chaque quartier : jusqu'à 5 catégories, couronne et gros coffre.
+- **Nouveaux indices** au fil des quartiers : « Parmi X et Y, l'une… et l'autre… » (Port),
+  la rue numérotée avec « à gauche de », « juste à droite de », « à côté de » (Festival).
 - **Étoiles** : 1 pour la grille résolue, 1 sans Loupe ni Éclair, 1 sous le temps de référence.
 - **Pièces** : gagnées en jouant (niveaux, coffres, trophées, défi du jour) et dépensées en aides :
   Vérifier (10, montre les erreurs), Loupe (25, révèle une association), Éclair (40, applique les
   indices simples). Loupe et Éclair se débloquent au fil du Jardin.
-- **Rangs** d'Apprenti à Légende grâce à l'expérience, **17 trophées**, **défi du jour** avec série.
+- **Rangs** d'Apprenti à Légende grâce à l'expérience, **22 trophées**, **défi du jour** avec série.
 - Un appui sur une case : croix (impossible), puis pastille verte (certain), puis vide.
   Une pastille barre le reste de sa ligne et de sa colonne. Un appui sur un indice le grise.
 - Sons et musique synthétisés sur l'appareil, vibrations, réglages, sauvegarde automatique.
 
 ## Installer l'APK
 
-Copier `logigramme-2.0.0.apk` sur le téléphone, l'ouvrir, puis autoriser l'installation
+Copier `logigramme-2.1.0.apk` sur le téléphone, l'ouvrir, puis autoriser l'installation
 d'applications depuis cette source quand Android le demande.
 
 ## Structure

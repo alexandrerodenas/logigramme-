@@ -242,7 +242,10 @@ func _on_node(w: int, l: int) -> void:
 	var world: Dictionary = Worlds.WORLDS[w]
 	var ic := UI.icon_rect(world.icon, 100)
 	box.add_child(ic)
-	var t := UI.label("Niveau %d" % l, 48, UI.INK, 700)
+	var boss := Worlds.is_boss(l)
+	if boss:
+		ic.texture = UI.icon("crown")
+	var t := UI.label("Grande énigme" if boss else "Niveau %d" % l, 48, UI.INK, 700)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(t)
 	var size_arr := Worlds.level_size(w, l)
@@ -259,6 +262,21 @@ func _on_node(w: int, l: int) -> void:
 		s.self_modulate = Color.WHITE if i < got else Color(0.3, 0.25, 0.35, 0.3)
 		stars_row.add_child(s)
 		UI.pop_in(s, 0.1 + i * 0.08)
+	for m in Worlds.level_mods(w, l):
+		var def: Dictionary = Worlds.MODS[m]
+		var chip := PanelContainer.new()
+		var csb := UI.box(Color(def.color), 20)
+		csb.set_content_margin_all(12)
+		chip.add_theme_stylebox_override("panel", csb)
+		var ch := HBoxContainer.new()
+		ch.add_theme_constant_override("separation", 10)
+		chip.add_child(ch)
+		ch.add_child(UI.icon_rect(def.icon, 44))
+		var cl := UI.label("%s : %s" % [def.name, def.desc], 21, Color.WHITE, 600)
+		cl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		cl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		ch.add_child(cl)
+		box.add_child(chip)
 	var rules := UI.label("1 étoile : résoudre la grille\n2 étoiles : sans Loupe ni Éclair\n3 étoiles : sans aide et sous le temps de référence", 21, UI.INK_SOFT)
 	rules.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(rules)

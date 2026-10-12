@@ -3,7 +3,7 @@ extends RefCounted
 ## Génère localement des logigrammes à solution unique, sans aucun accès réseau.
 ## Une grille est entièrement déterminée par sa configuration (voir Worlds).
 
-enum ClueType { SAME, DIFF, EITHER, YOUNGER, EXACT }
+enum ClueType { SAME, DIFF, EITHER, YOUNGER, EXACT, NEXT, PAIR }
 
 var rng := RandomNumberGenerator.new()
 var _perms: Array = []
@@ -16,14 +16,15 @@ func generate(cfg: Dictionary) -> Dictionary:
 	rng.seed = hash("logigramme-" + String(cfg.seed))
 	var n_cats: int = cfg.n_cats
 	var n: int = cfg.items
-	var pz := {"cfg": cfg, "n_cats": n_cats, "items": n, "age_cat": -1, "hard": n_cats * n >= 16}
+	var pz := {"cfg": cfg, "n_cats": n_cats, "items": n, "ordered": [], "hard": n_cats * n >= 16,
+		"pair": cfg.get("pair", false)}
 
 	var cats: Array = [_make_names(n)]
 	var defs: Array = _shuffled(cfg.cats)
 	for def in defs:
-		if def.has("age"):
-			pz.age_cat = cats.size()
-			cats.append(_make_age(n))
+		if def.has("ordered"):
+			pz.ordered.append(cats.size())
+			cats.append(_make_ordered(String(def.ordered), n))
 		else:
 			cats.append(_make_category(def, n))
 	pz.cats = cats
@@ -38,10 +39,12 @@ func generate(cfg: Dictionary) -> Dictionary:
 	var clues: Array = []
 	var texts := {}
 	var guard := 0
-	while guard < 400:
+	while guard < 500:
 		guard += 1
 		var clue := _random_clue(pz)
 		if clue.is_empty() or texts.has(clue.text):
+			continue
+		if int(clue.type) == ClueType.PAIR and clues.filter(func(c): return int(c.type) == ClueType.PAIR).size() >= 3:
 			continue
 		texts[clue.text] = true
 		clues.append(clue)
@@ -65,7 +68,17 @@ func generate(cfg: Dictionary) -> Dictionary:
 	for j in clues.size():
 		if keep[j]:
 			final_clues.append(clues[j])
-	pz.clues = final_clues
+
+	# Les niveaux à indices scellés ont besoin d'au moins un indice direct pour démarrer.
+	if cfg.get("mods", []).has("fog") and not final_clues.any(func(c): return int(c.type) == ClueType.SAME):
+		var e := rng.randi_range(0, n - 1)
+		var pair := _two_cats(n_cats)
+		if pair[1] == 0:
+			pair = [pair[1], pair[0]]
+		var same := {"type": ClueType.SAME, "a": [pair[0], sol[pair[0]][e]], "b": [pair[1], sol[pair[1]][e]]}
+		same.text = _clue_text(pz, same)
+		final_clues.append(same)
+	pz.clues = _shuffled(final_clues)
 	return pz
 
 
@@ -99,15 +112,21 @@ func _make_category(def: Dictionary, n: int) -> Dictionary:
 	return {"name": def.name, "icon": def.icon, "values": values}
 
 
-func _make_age(n: int) -> Dictionary:
+## Catégorie ordonnée : âges (plus jeune, écart d'années) ou numéros de rue (à gauche, à côté).
+func _make_ordered(kind: String, n: int) -> Dictionary:
+	var values: Array = []
+	if kind == "street":
+		for i in n:
+			values.append({"short": "n°%d" % (i + 1), "pred": "habite au n°%d" % (i + 1), "neg": "n'habite pas au n°%d" % (i + 1),
+				"desc": "la personne du n°%d" % (i + 1), "num": str(i + 1), "num_color": "cfe7ff"})
+		return {"name": "Rue", "icon": "house", "values": values, "kind": "street", "step": 1}
 	var step: int = [1, 2, 3, 5][rng.randi_range(0, 3)]
 	var base := rng.randi_range(8, 40)
-	var values: Array = []
 	for i in n:
 		var age := base + i * step
 		values.append({"short": "%d ans" % age, "pred": "a %d ans" % age, "neg": "n'a pas %d ans" % age,
-			"desc": "la personne de %d ans" % age, "age": age})
-	return {"name": "Âge", "icon": "hourglass", "values": values, "ordered": true, "step": step}
+			"desc": "la personne de %d ans" % age, "num": str(age), "num_color": "ffe7a8"})
+	return {"name": "Âge", "icon": "hourglass", "values": values, "kind": "age", "step": step}
 
 
 # --- Indices ------------------------------------------------------------------
@@ -116,10 +135,15 @@ func _random_clue(pz: Dictionary) -> Dictionary:
 	var n: int = pz.items
 	var n_cats: int = pz.n_cats
 	var sol: Array = pz.solution
-	var g: int = pz.age_cat
+	var ordered: Array = pz.ordered
 	var types := [ClueType.SAME, ClueType.DIFF, ClueType.DIFF, ClueType.DIFF, ClueType.EITHER, ClueType.EITHER]
-	if g >= 0:
+	if not ordered.is_empty():
 		types += [ClueType.YOUNGER, ClueType.YOUNGER, ClueType.EXACT]
+	var g: int = -1 if ordered.is_empty() else ordered[rng.randi_range(0, ordered.size() - 1)]
+	if g >= 0 and pz.cats[g].kind == "street":
+		types += [ClueType.NEXT, ClueType.NEXT]
+	if pz.pair and n_cats >= 3:
+		types.append(ClueType.PAIR)
 	if not pz.hard:
 		types.append(ClueType.SAME)
 	var t: int = types[rng.randi_range(0, types.size() - 1)]
@@ -149,7 +173,12 @@ func _random_clue(pz: Dictionary) -> Dictionary:
 			else:
 				cl.b = wrong
 				cl.c = right
-		ClueType.YOUNGER, ClueType.EXACT:
+		ClueType.YOUNGER, ClueType.EXACT, ClueType.NEXT:
+			if t == ClueType.NEXT:
+				# Deux entités voisines dans la rue.
+				var pos: int = sol[g][e1]
+				var nb := pos + (1 if pos == 0 or (pos < n - 1 and rng.randf() < 0.5) else -1)
+				e2 = sol[g].find(nb)
 			if sol[g][e1] > sol[g][e2]:
 				var tmp := e1
 				e1 = e2
@@ -163,7 +192,26 @@ func _random_clue(pz: Dictionary) -> Dictionary:
 				cl.a = [ca, sol[ca][e2]]
 				cl.b = [cb, sol[cb][e1]]
 				cl.d = sol[g][e2] - sol[g][e1]
+				if t == ClueType.NEXT and rng.randf() < 0.5:
+					var tmp = cl.a
+					cl.a = cl.b
+					cl.b = tmp
 			cl.g = g
+		ClueType.PAIR:
+			# « Parmi X et Y, l'une … et l'autre … » : la troisième catégorie diffère des deux autres.
+			var cc := rng.randi_range(1, n_cats - 1)
+			var ca := _cat_except(n_cats, cc)
+			var cb := _cat_except(n_cats, cc)
+			cl.a = [ca, sol[ca][e1]]
+			cl.b = [cb, sol[cb][e2]]
+			var v1 := [cc, sol[cc][e1]]
+			var v2 := [cc, sol[cc][e2]]
+			if rng.randf() < 0.5:
+				cl.c = v1
+				cl.e = v2
+			else:
+				cl.c = v2
+				cl.e = v1
 	cl.text = _clue_text(pz, cl)
 	return cl
 
@@ -187,10 +235,16 @@ static func _cap(s: String) -> String:
 	return s.substr(0, 1).to_upper() + s.substr(1)
 
 
+static func _vowel(s: String) -> bool:
+	return "AEIOUÉÈÊaeiouéèê".contains(s.substr(0, 1))
+
+
 static func _que(s: String) -> String:
-	if "AEIOUÉÈÊaeiouéèê".contains(s.substr(0, 1)):
-		return "qu'" + s
-	return "que " + s
+	return "qu'" + s if _vowel(s) else "que " + s
+
+
+static func _de(s: String) -> String:
+	return "d'" + s if _vowel(s) else "de " + s
 
 
 func _clue_text(pz: Dictionary, cl: Dictionary) -> String:
@@ -206,12 +260,26 @@ func _clue_text(pz: Dictionary, cl: Dictionary) -> String:
 			if b.has("name"):
 				return _cap(a.desc) + " est " + b.desc + " ou " + c.desc + "."
 			return _cap(a.desc) + " " + b.pred + " ou " + c.pred + "."
+		ClueType.PAIR:
+			var c := _val(pz, cl.c)
+			var e := _val(pz, cl.e)
+			return "Parmi %s et %s, l'une %s et l'autre %s." % [a.desc, b.desc, c.pred, e.pred]
+	var street: bool = pz.cats[cl.g].kind == "street"
+	match int(cl.type):
 		ClueType.YOUNGER:
+			if street:
+				return _cap(a.desc) + " habite à gauche " + _de(b.desc) + "."
 			return _cap(a.desc) + " est plus jeune " + _que(b.desc) + "."
 		ClueType.EXACT:
+			if street:
+				if int(cl.d) == 1:
+					return _cap(a.desc) + " habite juste à droite " + _de(b.desc) + "."
+				return _cap(a.desc) + " habite %d maisons à droite " % int(cl.d) + _de(b.desc) + "."
 			var years: int = int(cl.d) * int(pz.cats[cl.g].step)
 			var unit := "an" if years == 1 else "ans"
 			return _cap(a.desc) + " a exactement %d %s de plus " % [years, unit] + _que(b.desc) + "."
+		ClueType.NEXT:
+			return _cap(a.desc) + " habite à côté " + _de(b.desc) + "."
 	return ""
 
 
@@ -356,6 +424,17 @@ static func _holds(cl: Dictionary, p: Array, q: Array) -> bool:
 			return p[cl.g][ea] < p[cl.g][eb]
 		ClueType.EXACT:
 			return p[cl.g][ea] - p[cl.g][eb] == cl.d
+		ClueType.NEXT:
+			return abs(p[cl.g][ea] - p[cl.g][eb]) == 1
+		ClueType.PAIR:
+			if ea == eb:
+				return false
+			var cc: int = cl.c[0]
+			var va: int = p[cc][ea]
+			var vb: int = p[cc][eb]
+			var c1: int = cl.c[1]
+			var c2: int = cl.e[1]
+			return (va == c1 and vb == c2) or (va == c2 and vb == c1)
 	return false
 
 

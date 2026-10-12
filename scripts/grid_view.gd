@@ -5,7 +5,7 @@ extends Control
 
 signal changed
 signal solved
-signal marked(kind: int)
+signal marked(kind: int, cell: Array)
 
 const EMPTY := 0
 const CROSS := 1
@@ -178,8 +178,8 @@ func _tap(hit: Array) -> void:
 	if nxt == CHECK:
 		_exclude(rc, rv, cc, cv, action)
 	_hover = Vector2i(hit[4] * _n + rv, hit[5] * _n + cv)
-	marked.emit(nxt)
 	_commit(action)
+	marked.emit(nxt, [rc, rv, cc, cv])
 
 
 ## Un ✓ exclut le reste de sa ligne et de sa colonne dans ce bloc.
@@ -217,6 +217,32 @@ func undo() -> bool:
 	queue_redraw()
 	changed.emit()
 	return true
+
+
+## Fait clignoter une case en rouge (erreur signalée par un mode de jeu).
+func flash_error(cell: Array) -> void:
+	var id := "%s:%d" % _key_idx(cell[0], cell[1], cell[2], cell[3])
+	errors[id] = true
+	queue_redraw()
+	await get_tree().create_timer(0.9).timeout
+	errors.erase(id)
+	queue_redraw()
+
+
+func is_correct(cell: Array) -> bool:
+	return PuzzleGenerator.is_match(pz, cell[0], cell[1], cell[2], cell[3])
+
+
+func reset() -> void:
+	for k in marks:
+		var arr: PackedByteArray = marks[k]
+		arr.fill(EMPTY)
+		marks[k] = arr
+	undo_stack.clear()
+	errors.clear()
+	is_solved = false
+	queue_redraw()
+	changed.emit()
 
 
 func clear_all() -> void:
@@ -440,9 +466,9 @@ func _draw_value_icon(v: Dictionary, c: Vector2, sz: float) -> void:
 		var w := _font_bold.get_string_size(ch, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 		draw_string(_font_bold, c + Vector2(-w * 0.5, _font_bold.get_ascent(fs) * 0.36), ch, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)
 		return
-	if v.has("age"):
-		draw_circle(c, sz * 0.48, Color("ffe7a8"))
-		var txt := str(v.age)
+	if v.has("num"):
+		draw_circle(c, sz * 0.48, Color(v.num_color))
+		var txt: String = v.num
 		var fs := int(sz * 0.45)
 		var w := _font_bold.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 		draw_string(_font_bold, c + Vector2(-w * 0.5, _font_bold.get_ascent(fs) * 0.36), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, COL_TEXT)

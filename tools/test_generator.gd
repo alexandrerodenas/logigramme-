@@ -18,11 +18,27 @@ func _init() -> void:
 		var ms := Time.get_ticks_msec() - t0
 		worst = max(worst, ms)
 		var uniq := gen.count_solutions(pz, pz.clues, 2)
+		# La solution attendue doit vérifier chaque indice.
+		var sol: Array = pz.solution
+		var p: Array = []
+		var q: Array = []
+		for c in pz.n_cats:
+			var pc := PackedInt32Array(sol[c])
+			var qc := PackedInt32Array()
+			qc.resize(pz.items)
+			for e in pz.items:
+				qc[pc[e]] = e
+			p.append(pc)
+			q.append(qc)
+		for cl in pz.clues:
+			if not PuzzleGenerator._holds(cl, p, q):
+				failures += 1
+				print("INDICE FAUX ", cfg.seed, " : ", cl.text)
 		if uniq != 1:
 			failures += 1
 			print("ECHEC ", cfg.seed)
-		if cfg.seed.ends_with("niveau-1") or cfg.has("daily"):
-			print("%s : %d×%d, %d indices, %d ms" % [cfg.seed, cfg.n_cats, cfg.items, pz.clues.size(), ms])
+		if cfg.get("boss", false) or cfg.seed == "monde-3-niveau-8" or cfg.seed == "monde-2-niveau-1":
+			print("%s : %d×%d, %d indices, %d ms, mods %s" % [cfg.seed, cfg.n_cats, cfg.items, pz.clues.size(), ms, cfg.get("mods", [])])
 			for c in pz.cats:
 				print("   ", c.name, ": ", c.values.map(func(v): return v.short))
 			for cl in pz.clues:

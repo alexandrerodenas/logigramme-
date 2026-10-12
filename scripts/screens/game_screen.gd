@@ -12,6 +12,17 @@ var struck := {}
 var elapsed := 0.0
 var used_aid := false
 var finished := false
+var mods: Array = []
+var hearts := 3
+var hearts_lost := 0
+var bonus_time := 0.0
+var time_limit := 0.0
+var keys := 0
+var sealed := {}
+var awarded := {}
+var _failed := false
+var _mod_chips := {}
+var _clue_nodes := {}
 
 var _grid: GridView
 var _clue_box: VBoxContainer
@@ -33,6 +44,7 @@ func _ready() -> void:
 		cfg = Worlds.level_config(params.world, params.level)
 		key = Game.level_key(params.world, params.level)
 	world = cfg.world
+	mods = cfg.get("mods", [])
 	add_child(WorldBackground.new(world, 0.45))
 
 	var margin := MarginContainer.new()
@@ -59,8 +71,9 @@ func _ready() -> void:
 	title.add_theme_constant_override("separation", 8)
 	top.add_child(title)
 	var w_def: Dictionary = Worlds.WORLDS[world]
-	title.add_child(UI.icon_rect("calendar" if cfg.get("daily", false) else w_def.icon, 44))
-	var t_text := "Défi du jour" if cfg.get("daily", false) else "Niveau %d" % cfg.level
+	var boss: bool = cfg.get("boss", false)
+	title.add_child(UI.icon_rect("calendar" if cfg.get("daily", false) else ("crown" if boss else w_def.icon), 44))
+	var t_text := "Défi du jour" if cfg.get("daily", false) else ("Grande énigme" if boss else "Niveau %d" % cfg.level)
 	title.add_child(UI.label(t_text, 32, UI.INK, 700))
 	_timer_pill = UI.pill("timer", "0:00")
 	top.add_child(_timer_pill)
@@ -75,6 +88,8 @@ func _ready() -> void:
 	_progress.add_theme_stylebox_override("background", UI.box(Color(1, 1, 1, 0.7), 7))
 	_progress.add_theme_stylebox_override("fill", UI.box(Worlds.color(world, "accent"), 7))
 	col.add_child(_progress)
+	if not mods.is_empty():
+		col.add_child(_mod_bar())
 
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -158,6 +173,20 @@ func _on_generated(pz: Dictionary) -> void:
 		struck[int(i)] = true
 	elapsed = float(cur.get("time", 0.0))
 	used_aid = bool(cur.get("aid", false))
+	hearts = int(cur.get("hearts", 3))
+	hearts_lost = int(cur.get("hearts_lost", 0))
+	bonus_time = float(cur.get("bonus_time", 0.0))
+	keys = int(cur.get("keys", 0))
+	for k in cur.get("awarded", []):
+		awarded[k] = true
+	time_limit = round(Game.par_time(puzzle) * 1.25)
+	if mods.has("fog"):
+		if cur.has("sealed"):
+			for i in cur.sealed:
+				sealed[int(i)] = true
+		else:
+			_seal_clues()
+	_refresh_mods()
 	_loading.queue_free()
 	_grid.show()
 	_grid.setup(puzzle, saved_marks)
@@ -167,13 +196,25 @@ func _on_generated(pz: Dictionary) -> void:
 	_refresh_aids()
 	if not Game.data.tutorial and not cfg.get("daily", false) and world == 0 and cfg.level == 1:
 		_tutorial()
+	else:
+		_intros()
 
 
 func _process(delta: float) -> void:
-	if puzzle.is_empty() or finished or main.has_popup():
+	if puzzle.is_empty() or finished or _failed or main.has_popup():
 		return
 	elapsed += delta
-	UI.set_pill(_timer_pill, UI.format_time(elapsed))
+	if mods.has("chrono"):
+		var left := time_limit + bonus_time - elapsed
+		UI.set_pill(_timer_pill, UI.format_time(max(0.0, left)))
+		var l := _timer_pill.find_child("Value", true, false) as Label
+		l.add_theme_color_override("font_color", UI.CORAL if left < 30.0 else UI.INK)
+		if left < 30.0 and int(left * 2.0) != int((left + delta) * 2.0):
+			Sfx.play("tap", 1.4)
+		if left <= 0.0:
+			_fail("chrono")
+	else:
+		UI.set_pill(_timer_pill, UI.format_time(elapsed))
 	_save_acc += delta
 	if _save_acc > 5.0:
 		_save_acc = 0.0
@@ -192,65 +233,90 @@ func back() -> void:
 func _save_progress() -> void:
 	if finished or puzzle.is_empty():
 		return
-	Game.set_current(key, {"marks": _grid.export_marks(), "struck": struck.keys(), "time": elapsed, "aid": used_aid})
+	Game.set_current(key, {"marks": _grid.export_marks(), "struck": struck.keys(), "time": elapsed, "aid": used_aid,
+		"hearts": hearts, "hearts_lost": hearts_lost, "bonus_time": bonus_time, "keys": keys,
+		"sealed": sealed.keys(), "awarded": awarded.keys()})
 
 
 # --- Indices ------------------------------------------------------------------
 
 func _build_clues() -> void:
-	var accent := Worlds.color(world, "accent")
+	for c in _clue_box.get_children():
+		c.queue_free()
+	_clue_nodes.clear()
 	for i in puzzle.clues.size():
 		var panel := PanelContainer.new()
 		panel.mouse_filter = Control.MOUSE_FILTER_PASS
-		var sb := UI.box(Color(1, 1, 1, 0.92), 22)
-		sb.content_margin_left = 12
-		sb.content_margin_right = 16
-		sb.content_margin_top = 12
-		sb.content_margin_bottom = 12
-		panel.add_theme_stylebox_override("panel", sb)
 		var h := HBoxContainer.new()
 		h.add_theme_constant_override("separation", 12)
 		h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		panel.add_child(h)
 		var badge := PanelContainer.new()
 		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var bsb := UI.box(accent, 20)
-		bsb.content_margin_left = 12
-		bsb.content_margin_right = 12
-		badge.add_theme_stylebox_override("panel", bsb)
 		badge.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 		var num := UI.label(str(i + 1), 24, Color.WHITE, 700)
 		num.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		num.custom_minimum_size.x = 20
 		badge.add_child(num)
 		h.add_child(badge)
-		var lbl := UI.label(puzzle.clues[i].text, 25, UI.INK, 500)
+		var lbl := UI.label("", 25, UI.INK, 500)
 		lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		h.add_child(lbl)
+		var lock := UI.icon_rect("key", 40)
+		h.add_child(lock)
 		var press := [Vector2.ZERO]
 		panel.gui_input.connect(func(e):
 			if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
 				if e.pressed:
 					press[0] = e.global_position
 				elif e.global_position.distance_to(press[0]) < 22:
-					_toggle_clue(i, panel, lbl))
+					_on_clue_tap(i))
 		_clue_box.add_child(panel)
-		_style_clue(i, panel, lbl, false)
+		_clue_nodes[i] = {"panel": panel, "label": lbl, "badge": badge, "lock": lock}
+		_render_clue(i, false)
 		UI.pop_in(panel, 0.05 * i, 0.9)
 
 
-func _toggle_clue(i: int, panel: PanelContainer, lbl: Label) -> void:
+func _on_clue_tap(i: int) -> void:
+	if sealed.has(i):
+		_open_sealed(i)
+		return
 	if struck.has(i):
 		struck.erase(i)
 	else:
 		struck[i] = true
 	Sfx.play("tap", 0.8 if struck.has(i) else 1.1)
-	_style_clue(i, panel, lbl, true)
+	_render_clue(i, true)
 	_save_progress()
 
 
-func _style_clue(i: int, panel: PanelContainer, lbl: Label, animate: bool) -> void:
+func _render_clue(i: int, animate: bool) -> void:
+	var n: Dictionary = _clue_nodes[i]
+	var panel: PanelContainer = n.panel
+	var lbl: Label = n.label
+	var is_sealed := sealed.has(i)
+	var accent := Worlds.color(world, "accent")
+	var sb := UI.box(Color("ece6ff") if is_sealed else Color(1, 1, 1, 0.92), 22)
+	sb.content_margin_left = 12
+	sb.content_margin_right = 16
+	sb.content_margin_top = 12
+	sb.content_margin_bottom = 12
+	if is_sealed:
+		sb.border_color = UI.LAVENDER
+		sb.set_border_width_all(3)
+	panel.add_theme_stylebox_override("panel", sb)
+	var bsb := UI.box(UI.LAVENDER if is_sealed else accent, 20)
+	bsb.content_margin_left = 12
+	bsb.content_margin_right = 12
+	(n.badge as PanelContainer).add_theme_stylebox_override("panel", bsb)
+	(n.lock as Control).visible = is_sealed
+	if is_sealed:
+		lbl.text = "Indice scellé : touche pour l'ouvrir avec une clé."
+		lbl.add_theme_color_override("font_color", UI.LAVENDER.darkened(0.3))
+		panel.modulate = Color.WHITE
+		return
+	lbl.text = puzzle.clues[i].text
 	var done := struck.has(i)
 	var target := Color(1, 1, 1, 0.42) if done else Color.WHITE
 	if animate:
@@ -262,7 +328,19 @@ func _style_clue(i: int, panel: PanelContainer, lbl: Label, animate: bool) -> vo
 
 # --- Grille -------------------------------------------------------------------
 
-func _on_marked(kind: int) -> void:
+func _on_marked(kind: int, cell: Array) -> void:
+	if kind == GridView.CHECK and not finished:
+		var ok := _grid.is_correct(cell)
+		if mods.has("hearts") and not ok:
+			_lose_heart(cell)
+			return
+		if mods.has("fog") and ok:
+			var id := "%d-%d-%d-%d" % cell
+			if not awarded.has(id):
+				awarded[id] = true
+				keys += 1
+				_refresh_mods(true)
+				Sfx.play("coin", 1.2)
 	match kind:
 		GridView.CROSS:
 			Sfx.play("cross", randf_range(0.95, 1.05))
@@ -432,7 +510,7 @@ func _on_solved() -> void:
 	Sfx.play("win")
 	Sfx.buzz(60)
 	var par := Game.par_time(puzzle)
-	var r := Game.complete(cfg, elapsed, used_aid, par)
+	var r := Game.complete(cfg, elapsed, used_aid, par, {"hearts_lost": hearts_lost})
 	await get_tree().create_timer(0.5).timeout
 	main.confetti()
 	_victory(r)
@@ -480,6 +558,8 @@ func _victory(r: Dictionary) -> void:
 	var extras := VBoxContainer.new()
 	extras.add_theme_constant_override("separation", 8)
 	box.add_child(extras)
+	if r.get("mod_bonus", 0) > 0:
+		extras.add_child(_banner(Worlds.MODS[mods[0]].icon, "Bonus niveau spécial : +%d pièces" % r.mod_bonus, Color(Worlds.MODS[mods[0]].color)))
 	if r.chest > 0:
 		extras.add_child(_banner("gift", "Coffre ouvert : +%d pièces !" % r.chest, UI.CORAL))
 	if r.get("streak", 0) > 0:
@@ -566,3 +646,178 @@ func _banner(icon_name: String, text: String, color: Color) -> Control:
 	h.add_child(l)
 	UI.pop_in(p, 0.9, 0.7)
 	return p
+
+
+# --- Niveaux spéciaux ---------------------------------------------------------
+
+func _mod_bar() -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	for m in mods:
+		var def: Dictionary = Worlds.MODS[m]
+		var chip := PanelContainer.new()
+		chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var sb := UI.box(Color(def.color), 20)
+		sb.content_margin_left = 10
+		sb.content_margin_right = 14
+		sb.content_margin_top = 4
+		sb.content_margin_bottom = 4
+		chip.add_theme_stylebox_override("panel", sb)
+		var h := HBoxContainer.new()
+		h.add_theme_constant_override("separation", 6)
+		chip.add_child(h)
+		h.add_child(UI.icon_rect(def.icon, 30))
+		var l := UI.label(def.name, 21, Color.WHITE, 600)
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		h.add_child(l)
+		var extra := HBoxContainer.new()
+		extra.add_theme_constant_override("separation", 2)
+		h.add_child(extra)
+		chip.gui_input.connect(func(e):
+			if e is InputEventMouseButton and e.pressed:
+				main.toast(def.icon, def.name, def.desc))
+		row.add_child(chip)
+		_mod_chips[m] = {"chip": chip, "extra": extra}
+	return row
+
+
+func _refresh_mods(pop: bool = false) -> void:
+	if _mod_chips.has("hearts"):
+		var extra: HBoxContainer = _mod_chips.hearts.extra
+		for c in extra.get_children():
+			c.queue_free()
+		for i in 3:
+			extra.add_child(UI.icon_rect("heart" if i < hearts else "broken", 28))
+	if _mod_chips.has("fog"):
+		var extra: HBoxContainer = _mod_chips.fog.extra
+		for c in extra.get_children():
+			c.queue_free()
+		extra.add_child(UI.label("× %d" % keys, 24, Color.WHITE, 700))
+		if pop:
+			var chip: Control = _mod_chips.fog.chip
+			chip.pivot_offset = chip.size / 2.0
+			chip.scale = Vector2(1.15, 1.15)
+			create_tween().tween_property(chip, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+
+func _seal_clues() -> void:
+	sealed.clear()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(String(cfg.seed) + "-scelles")
+	var candidates: Array = []
+	for i in puzzle.clues.size():
+		if int(puzzle.clues[i].type) != PuzzleGenerator.ClueType.SAME:
+			candidates.append(i)
+	var count: int = min(candidates.size(), int(ceil(puzzle.clues.size() * 0.45)))
+	for k in count:
+		var j := rng.randi_range(0, candidates.size() - 1)
+		sealed[int(candidates[j])] = true
+		candidates.remove_at(j)
+
+
+func _open_sealed(i: int) -> void:
+	if keys > 0:
+		keys -= 1
+		_unseal(i)
+		return
+	main.message("key", "Pas de clé", "Place une bonne pastille verte pour gagner une clé, ou ouvre cet indice tout de suite pour 15 pièces.",
+		[["Attendre", UI.SKY], ["Ouvrir (15)", UI.LAVENDER, func():
+			if Game.spend(15):
+				_unseal(i)
+			else:
+				main.toast("coin", "Pas assez de pièces", "")]])
+
+
+func _unseal(i: int) -> void:
+	sealed.erase(i)
+	_refresh_mods(true)
+	_render_clue(i, false)
+	var panel: Control = _clue_nodes[i].panel
+	UI.pop_in(panel, 0.0, 0.7)
+	Sfx.play("unlock")
+	Sfx.buzz(30)
+	_save_progress()
+
+
+func _lose_heart(cell: Array) -> void:
+	_grid.undo()
+	_grid.flash_error(cell)
+	hearts -= 1
+	hearts_lost += 1
+	_refresh_mods()
+	Sfx.play("error")
+	Sfx.buzz(90)
+	_shake(_mod_chips.hearts.chip)
+	_save_progress()
+	if hearts <= 0:
+		_fail("hearts")
+
+
+func _fail(kind: String) -> void:
+	_failed = true
+	var title := "Plus de cœurs !" if kind == "hearts" else "Temps écoulé !"
+	var body := "Trois pastilles mal placées : l'enquête dérape." if kind == "hearts" else "Le sablier est vide."
+	var cost := 25
+	var cont := "+2 cœurs" if kind == "hearts" else "+1 minute"
+	main.message("broken" if kind == "hearts" else "hourglass", title, body + "\nRecommencer la grille, ou continuer pour %d pièces ?" % cost,
+		[["Recommencer", UI.SKY, _restart], ["%s (%d)" % [cont, cost], UI.CORAL, func():
+			if Game.spend(cost):
+				if kind == "hearts":
+					hearts = 2
+				else:
+					bonus_time += 60.0
+				_failed = false
+				_refresh_mods()
+				_save_progress()
+			else:
+				main.toast("coin", "Pas assez de pièces", "On recommence la grille.")
+				_restart()]], false)
+
+
+func _restart() -> void:
+	_failed = false
+	elapsed = 0.0
+	bonus_time = 0.0
+	hearts = 3
+	hearts_lost = 0
+	keys = 0
+	awarded.clear()
+	struck.clear()
+	used_aid = false
+	_grid.reset()
+	if mods.has("fog"):
+		_seal_clues()
+	_build_clues()
+	_refresh_mods()
+	_save_progress()
+
+
+## Présente la grande énigme, les modificateurs et les nouveaux types d'indices la première fois.
+func _intros() -> void:
+	var queue: Array = []
+	var seen: Dictionary = Game.data.seen_intros
+	if cfg.get("boss", false):
+		queue.append(["crown", "Grande énigme !", "La dernière enquête du quartier : %d catégories à démêler. Un gros coffre attend au bout." % puzzle.n_cats])
+	for m in mods:
+		if not seen.has(m):
+			seen[m] = true
+			var def: Dictionary = Worlds.MODS[m]
+			queue.append([def.icon, "Niveau spécial : %s" % def.name, def.desc + " Bonus de pièces à la clé."])
+	if puzzle.clues.any(func(c): return int(c.type) == PuzzleGenerator.ClueType.PAIR) and not seen.has("pair"):
+		seen.pair = true
+		var d: Dictionary = Worlds.CLUE_INTROS.pair
+		queue.append([d.icon, d.title, d.text])
+	if puzzle.cats.any(func(c): return c.get("kind", "") == "street") and not seen.has("street"):
+		seen.street = true
+		var d: Dictionary = Worlds.CLUE_INTROS.street
+		queue.append([d.icon, d.title, d.text])
+	Game.save()
+	_show_queue(queue, 0)
+
+
+func _show_queue(queue: Array, i: int) -> void:
+	if i >= queue.size():
+		return
+	var q: Array = queue[i]
+	Sfx.play("unlock")
+	main.message(q[0], q[1], q[2], [["Compris !", UI.CORAL, func(): _show_queue(queue, i + 1)]], false)
