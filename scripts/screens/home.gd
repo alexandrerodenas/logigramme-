@@ -102,6 +102,8 @@ func _ready() -> void:
 		Game.data.welcomed = true
 		Game.save()
 		await get_tree().create_timer(0.4).timeout
+		if not is_inside_tree() or main.screen != self:
+			return
 		main.message("detective", "Bienvenue au village !",
 			"Les habitants ont besoin d'un fin limier. Résous leurs énigmes, gagne des étoiles et des pièces, et ouvre de nouveaux quartiers.",
 			[["C'est parti !", UI.CORAL]])
@@ -114,6 +116,8 @@ func back() -> void:
 
 func _pulse(c: Control) -> void:
 	await get_tree().process_frame
+	if not is_instance_valid(c):
+		return
 	c.pivot_offset = c.size / 2.0
 	var tw := c.create_tween().set_loops()
 	tw.tween_property(c, "scale", Vector2(1.03, 1.03), 0.8).set_trans(Tween.TRANS_SINE)

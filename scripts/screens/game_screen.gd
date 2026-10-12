@@ -537,8 +537,17 @@ func _on_solved() -> void:
 	var par := Game.par_time(puzzle)
 	var r := Game.complete(cfg, elapsed, used_aid, par, {"hearts_lost": hearts_lost})
 	await get_tree().create_timer(0.5).timeout
+	if not _alive():
+		return
 	main.confetti()
 	_victory(r)
+
+
+## Vrai tant que cet écran est celui affiché. Après un `await`, le joueur a pu changer d'écran
+## et la fenêtre de victoire a pu être fermée : ses nœuds sont alors libérés et y toucher
+## fait planter la version publiée du jeu.
+func _alive() -> bool:
+	return is_inside_tree() and main.screen == self
 
 
 func _victory(r: Dictionary) -> void:
@@ -625,20 +634,27 @@ func _victory(r: Dictionary) -> void:
 	for i in 3:
 		if i < r.stars:
 			await get_tree().create_timer(0.35).timeout
+			if not _alive() or not is_instance_valid(stars[i]):
+				return
 			var s: Control = stars[i]
 			s.modulate = Color.WHITE
 			s.pivot_offset = s.size / 2.0
 			s.scale = Vector2(1.8, 1.8)
-			create_tween().tween_property(s, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			s.create_tween().tween_property(s, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 			Sfx.play("star", 1.0 + i * 0.12)
 			Sfx.buzz(25)
+	if not is_instance_valid(coin_pill):
+		return
 	var total: int = r.coins
-	var tw := create_tween()
+	# Tween porté par la pastille : il s'arrête avec elle si la fenêtre se ferme.
+	var tw := coin_pill.create_tween()
 	tw.tween_method(func(v: float): UI.set_pill(coin_pill, "+%d" % int(v)), 0.0, float(total), 0.8)
 	if total > 0:
 		main.fly_icons("coin", coin_pill.global_position + coin_pill.size / 2.0, _coins.global_position + _coins.size / 2.0, min(10, 3 + total / 10))
 	for a in r.achievements:
 		await get_tree().create_timer(0.6).timeout
+		if not is_inside_tree():
+			return
 		Sfx.play("unlock")
 		main.toast(a.icon, "Trophée : %s" % a.name, "%s  +%d pièces" % [a.desc, a.coins])
 

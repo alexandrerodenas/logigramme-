@@ -60,6 +60,8 @@ func _ready() -> void:
 	_build_top_bar()
 	await get_tree().process_frame
 	await get_tree().process_frame
+	if not is_inside_tree():
+		return
 	var target := _node_pos(focus[0], focus[1]).y - get_viewport_rect().size.y * 0.55
 	_scroll.scroll_vertical = int(target + 300)
 	create_tween().tween_property(_scroll, "scroll_vertical", int(target), 0.7).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
@@ -301,6 +303,8 @@ func _announce_worlds() -> void:
 			Game.data.seen_worlds[str(w)] = true
 			Game.save()
 			await get_tree().create_timer(0.8).timeout
+			if not is_inside_tree() or main.screen != self:
+				return
 			Sfx.play("unlock")
 			main.confetti(60)
 			var world: Dictionary = Worlds.WORLDS[w]
