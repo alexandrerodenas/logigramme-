@@ -2,11 +2,10 @@ class_name GridView
 extends Control
 ## Grille de logigramme en escalier : chaque bloc croise deux catégories.
 ## Un appui fait défiler une case : vide → croix → pastille → vide.
+## Rien n'est jugé pendant le remplissage : la grille n'est corrigée que quand le joueur la valide.
 
 signal changed
 signal solved
-## Toutes les pastilles sont posées mais la solution est fausse.
-signal wrong_complete
 signal marked(kind: int, cell: Array)
 
 const EMPTY := 0
@@ -40,7 +39,6 @@ var _font_bold: Font
 ## Taille unique de tout le texte de la grille (libellés, initiales, pastilles chiffrées), quel que soit le niveau.
 const FONT_SIZE := 18
 var _font_size := FONT_SIZE
-var _was_complete := false
 var _hover := Vector2i(-1, -1)
 var _anims := {}         # "a_b:idx" -> instant de départ (s)
 var _glow := {}          # "a_b:idx" -> instant de départ (s)
@@ -72,10 +70,10 @@ func setup(puzzle: Dictionary, saved_marks: Dictionary = {}) -> void:
 	errors.clear()
 	_anims.clear()
 	_glow.clear()
-	is_solved = _check_solved()
-	_was_complete = is_complete()
-	_font = UI.font(500)
-	_font_bold = UI.font(600)
+	is_solved = false
+	# Graisses un peu plus fortes : les libellés restent nets même sur de petites cases.
+	_font = UI.font(580)
+	_font_bold = UI.font(700)
 	_relayout()
 	queue_redraw()
 
@@ -227,23 +225,29 @@ func _commit(action: Array) -> void:
 	errors.clear()
 	queue_redraw()
 	changed.emit()
-	if _check_solved():
+
+
+## Validation par le joueur. Renvoie le nombre de pastilles manquantes (> 0 : grille incomplète,
+## rien n'est jugé), sinon le nombre de pastilles fausses (0 : gagné, `solved` est émis), en négatif.
+func submit() -> int:
+	var missing := missing_checks()
+	if missing > 0:
+		return missing
+	var wrong := wrong_checks()
+	if wrong == 0:
 		is_solved = true
 		solved.emit()
-	else:
-		_check_complete()
-
-
-## Signale une seule fois le passage à « grille pleine mais fausse ».
-func _check_complete() -> void:
-	var full := is_complete()
-	if full and not _was_complete:
-		wrong_complete.emit()
-	_was_complete = full
+	return -wrong
 
 
 ## Vrai quand chaque habitant a une pastille dans chaque bloc de la première ligne.
 func is_complete() -> bool:
+	return missing_checks() == 0
+
+
+## Pastilles qu'il reste à poser dans les blocs de la première ligne.
+func missing_checks() -> int:
+	var missing := 0
 	for k in marks:
 		if not String(k).begins_with("0_"):
 			continue
@@ -251,9 +255,8 @@ func is_complete() -> bool:
 		for m in marks[k]:
 			if m == CHECK:
 				checks += 1
-		if checks < _n:
-			return false
-	return true
+		missing += max(0, _n - checks)
+	return missing
 
 
 func undo() -> bool:
@@ -267,7 +270,6 @@ func undo() -> bool:
 		marks[e[0]] = arr
 		_anims["%s:%d" % [e[0], e[1]]] = _time
 	errors.clear()
-	_was_complete = is_complete()
 	queue_redraw()
 	changed.emit()
 	return true
@@ -386,12 +388,11 @@ func apply_simple_clues() -> int:
 	return n
 
 
-## Gagné quand toutes les pastilles posées sont justes et que chaque habitant a sa pastille
-## dans chaque bloc de la première ligne : cela fixe toute la solution, inutile de remplir
-## les autres blocs ni de poser les croix.
-func _check_solved() -> bool:
-	if not is_complete():
-		return false
+## Pastilles posées à tort, tous blocs confondus. La grille est gagnée quand chaque habitant a
+## sa pastille dans chaque bloc de la première ligne et qu'aucune pastille n'est fausse : cela
+## fixe toute la solution, inutile de remplir les autres blocs ni de poser les croix.
+func wrong_checks() -> int:
+	var wrong := 0
 	for k in marks:
 		var ab: PackedStringArray = k.split("_")
 		var a := int(ab[0])
@@ -399,8 +400,8 @@ func _check_solved() -> bool:
 		var arr: PackedByteArray = marks[k]
 		for i in arr.size():
 			if arr[i] == CHECK and not PuzzleGenerator.is_match(pz, a, i / _n, b, i % _n):
-				return false
-	return true
+				wrong += 1
+	return wrong
 
 
 ## Avancement (0 à 1) : pastilles posées dans les blocs de la première ligne.

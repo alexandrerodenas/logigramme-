@@ -13,7 +13,7 @@ const AVATAR_COLORS := ["#ff7a59", "#5cc9a7", "#6ec3f4", "#a78bfa", "#ffc93c", "
 ## Modificateurs des niveaux spéciaux.
 const MODS := {
 	"hearts": {"icon": "heart", "name": "Sans faute", "color": "#f0507a",
-		"desc": "3 cœurs : chaque pastille verte mal placée en coûte un."},
+		"desc": "3 cœurs : chaque grille validée avec une erreur en coûte un."},
 	"chrono": {"icon": "timer", "name": "Contre-la-montre", "color": "#f59e0b",
 		"desc": "Le temps est compté : finis avant la fin du sablier."},
 	"fog": {"icon": "key", "name": "Indices scellés", "color": "#7c6cf0",

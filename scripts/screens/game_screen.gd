@@ -31,6 +31,8 @@ var _coins: Control
 var _progress: ProgressBar
 var _loading: Control
 var _aid_buttons := {}
+var _submit_btn: Button
+var _submit_pulse: Tween
 var _thread: Thread
 var _body: BoxContainer
 var _card: PanelContainer
@@ -129,7 +131,6 @@ func _ready() -> void:
 	_grid.changed.connect(_on_grid_changed)
 	_grid.solved.connect(_on_solved)
 	_grid.marked.connect(_on_marked)
-	_grid.wrong_complete.connect(_on_wrong_complete.bind(card))
 	_grid.hide()
 	card.add_child(_grid)
 
@@ -258,6 +259,7 @@ func _on_generated(pz: Dictionary) -> void:
 	_build_clues()
 	_progress.value = _grid.fill_ratio()
 	_refresh_aids()
+	_refresh_submit()
 	if not Game.data.tutorial and not cfg.get("daily", false) and world == 0 and cfg.level == 1:
 		_tutorial()
 	else:
@@ -323,7 +325,7 @@ func _build_clues() -> void:
 		num.custom_minimum_size.x = 20
 		badge.add_child(num)
 		h.add_child(badge)
-		var lbl := UI.label("", 25, UI.INK, 500)
+		var lbl := UI.label("", 25, UI.INK, 560)
 		lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		h.add_child(lbl)
@@ -392,13 +394,11 @@ func _render_clue(i: int, animate: bool) -> void:
 
 # --- Grille -------------------------------------------------------------------
 
+## Poser, retirer ou reposer une marque n'est jamais compté comme une erreur : la grille n'est
+## jugée que quand le joueur la valide.
 func _on_marked(kind: int, cell: Array) -> void:
 	if kind == GridView.CHECK and not finished:
-		var ok := _grid.is_correct(cell)
-		if mods.has("hearts") and not ok:
-			_lose_heart(cell)
-			return
-		if mods.has("fog") and ok:
+		if mods.has("fog") and _grid.is_correct(cell):
 			var id := "%d-%d-%d-%d" % cell
 			if not awarded.has(id):
 				awarded[id] = true
@@ -415,22 +415,55 @@ func _on_marked(kind: int, cell: Array) -> void:
 	Sfx.buzz(12)
 
 
-## Grille pleine mais fausse : elle tremble, avec un son d'erreur et une vibration.
-func _on_wrong_complete(card: Control) -> void:
+## Bouton « Valider » : seul moment où la grille est jugée. Incomplète, elle n'est pas corrigée ;
+## pleine mais fausse, elle tremble et, en mode Sans faute, coûte un cœur.
+func _submit() -> void:
+	if puzzle.is_empty() or finished or _failed:
+		return
+	var r := _grid.submit()
+	if r == 0:
+		return
+	if r > 0:
+		Sfx.play("error")
+		main.toast("puzzle", "Grille incomplète", "Il manque %d pastille%s dans les blocs du haut." % [r, "s" if r > 1 else ""])
+		_shake(_submit_btn)
+		return
+	var wrong := -r
 	Sfx.play("error")
 	Sfx.buzz(220)
-	var x := card.position.x
+	var x := _card.position.x
 	var tw := create_tween()
 	for i in 4:
-		tw.tween_property(card, "position:x", x + 16, 0.05)
-		tw.tween_property(card, "position:x", x - 16, 0.05)
-	tw.tween_property(card, "position:x", x, 0.05)
-	main.toast("broken", "Il y a une erreur", "Chaque habitant a ses pastilles, mais quelque chose cloche.")
+		tw.tween_property(_card, "position:x", x + 16, 0.05)
+		tw.tween_property(_card, "position:x", x - 16, 0.05)
+	tw.tween_property(_card, "position:x", x, 0.05)
+	var sub := "%d pastille%s mal placée%s. Cherche ce qui cloche." % [wrong, "s" if wrong > 1 else "", "s" if wrong > 1 else ""]
+	if mods.has("hearts"):
+		_lose_heart()
+		if hearts > 0:
+			sub += " Il te reste %d cœur%s." % [hearts, "s" if hearts > 1 else ""]
+	if not _failed:
+		main.toast("broken", "Ce n'est pas encore ça", sub)
 
 
 func _on_grid_changed() -> void:
 	create_tween().tween_property(_progress, "value", _grid.fill_ratio(), 0.25)
+	_refresh_submit()
 	_save_progress()
+
+
+## « Valider » pulse doucement dès que la grille est pleine.
+func _refresh_submit() -> void:
+	var full := not puzzle.is_empty() and _grid.is_complete() and not finished
+	if full and _submit_pulse == null:
+		_submit_btn.pivot_offset = _submit_btn.size / 2.0
+		_submit_pulse = _submit_btn.create_tween().set_loops()
+		_submit_pulse.tween_property(_submit_btn, "scale", Vector2(1.04, 1.04), 0.45).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		_submit_pulse.tween_property(_submit_btn, "scale", Vector2.ONE, 0.45).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	elif not full and _submit_pulse != null:
+		_submit_pulse.kill()
+		_submit_pulse = null
+		_submit_btn.scale = Vector2.ONE
 
 
 # --- Aides --------------------------------------------------------------------
@@ -450,13 +483,18 @@ func _aid_bar() -> Control:
 		b.pressed.connect(_use_aid.bind(id))
 		row.add_child(b)
 		_aid_buttons[id] = b
+	_submit_btn = _aid_button("target", "Valider", "", UI.CORAL)
+	_submit_btn.size_flags_stretch_ratio = 1.25
+	_submit_btn.pressed.connect(_submit)
+	row.add_child(_submit_btn)
 	return row
 
 
 func _aid_button(icon_name: String, text: String, cost: String, color: Color) -> Button:
 	var b := UI.button("", color, "", 22, UI.INK if color == UI.YELLOW else Color.WHITE)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	b.custom_minimum_size.y = 86
+	b.custom_minimum_size.y = 90
+	b.set_meta("color", color)
 	var v := VBoxContainer.new()
 	v.set_anchors_preset(Control.PRESET_FULL_RECT)
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -468,10 +506,14 @@ func _aid_button(icon_name: String, text: String, cost: String, color: Color) ->
 	ic.name = "Icon"
 	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(ic)
+	# Texte plein et gras, avec un liseré de la couleur du bouton en plus foncé : il reste net
+	# et lisible sur les fonds clairs.
 	var tc := UI.INK if color == UI.YELLOW else Color.WHITE
-	var l := UI.label(text, 20, tc, 600)
+	var l := UI.label(text, 23, tc, 700)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if tc == Color.WHITE:
+		UI.outline(l, color.darkened(0.35), 5)
 	v.add_child(l)
 	if cost != "":
 		var ch := HBoxContainer.new()
@@ -479,9 +521,11 @@ func _aid_button(icon_name: String, text: String, cost: String, color: Color) ->
 		ch.add_theme_constant_override("separation", 4)
 		ch.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		ch.name = "Cost"
-		ch.add_child(UI.icon_rect("coin", 20))
-		var cl := UI.label(cost, 19, tc, 700)
+		ch.add_child(UI.icon_rect("coin", 22))
+		var cl := UI.label(cost, 21, tc, 700)
 		cl.name = "CostLabel"
+		if tc == Color.WHITE:
+			UI.outline(cl, color.darkened(0.35), 5)
 		ch.add_child(cl)
 		v.add_child(ch)
 	return b
@@ -493,7 +537,14 @@ func _refresh_aids() -> void:
 		var unlocked := Game.is_aid_unlocked(id)
 		var ic := b.find_child("Icon", true, false) as TextureRect
 		ic.texture = UI.icon(Game.AIDS[id].icon if unlocked else "lock")
-		b.modulate = Color.WHITE if unlocked else Color(1, 1, 1, 0.6)
+		# Seul le fond pâlit (en restant opaque) quand l'aide est verrouillée : le texte reste net.
+		var base: Color = b.get_meta("color")
+		var bg := base if unlocked else base.lerp(Color.WHITE, 0.45)
+		for state in ["normal", "hover", "pressed"]:
+			var sb := (b.get_theme_stylebox(state) as StyleBoxFlat).duplicate() as StyleBoxFlat
+			sb.bg_color = bg.lightened(0.06) if state == "hover" else bg
+			sb.border_color = bg.darkened(0.25)
+			b.add_theme_stylebox_override(state, sb)
 
 
 func _use_aid(id: String) -> void:
@@ -563,7 +614,7 @@ func _shake(c: Control) -> void:
 func _tutorial() -> void:
 	var steps := [
 		["detective", "Ta première enquête", "Chaque habitant a exactement une valeur dans chaque catégorie, et jamais la même qu'un autre. À toi de trouver qui va avec quoi grâce aux indices."],
-		["puzzle", "La grille", "Touche une case une fois pour une croix (impossible), deux fois pour une pastille verte (c'est bien ça !), trois fois pour la vider. Tu gagnes dès que chaque habitant a la bonne pastille dans chaque catégorie : les croix et les autres blocs sont là pour t'aider. Une seule pastille est permise par ligne et par colonne d'un bloc. Le balai efface toute la grille, la roue dentée ouvre les réglages."],
+		["puzzle", "La grille", "Touche une case une fois pour une croix (impossible), deux fois pour une pastille verte (c'est bien ça !), trois fois pour la vider. Quand chaque habitant a sa pastille dans chaque catégorie, touche Valider : rien n'est compté comme faux avant. Les croix et les autres blocs sont là pour t'aider. Une seule pastille est permise par ligne et par colonne d'un bloc. Le balai efface toute la grille, la roue dentée ouvre les réglages."],
 		["coin", "Étoiles et pièces", "Résous vite et sans aide pour gagner 3 étoiles. Les pièces gagnées servent à acheter des aides quand tu bloques."],
 	]
 	_tutorial_step(steps, 0)
@@ -583,6 +634,7 @@ func _tutorial_step(steps: Array, i: int) -> void:
 
 func _on_solved() -> void:
 	finished = true
+	_refresh_submit()
 	_progress.value = 1.0
 	Sfx.play("win")
 	Sfx.buzz(60)
@@ -832,9 +884,7 @@ func _unseal(i: int) -> void:
 	_save_progress()
 
 
-func _lose_heart(cell: Array) -> void:
-	_grid.undo()
-	_grid.flash_error(cell)
+func _lose_heart() -> void:
 	hearts -= 1
 	hearts_lost += 1
 	_refresh_mods()
@@ -849,7 +899,7 @@ func _lose_heart(cell: Array) -> void:
 func _fail(kind: String) -> void:
 	_failed = true
 	var title := "Plus de cœurs !" if kind == "hearts" else "Temps écoulé !"
-	var body := "Trois pastilles mal placées : l'enquête dérape." if kind == "hearts" else "Le sablier est vide."
+	var body := "Trois grilles fausses validées : l'enquête dérape." if kind == "hearts" else "Le sablier est vide."
 	var cost := 25
 	var cont := "+2 cœurs" if kind == "hearts" else "+1 minute"
 	main.message("broken" if kind == "hearts" else "hourglass", title, body + "\nRecommencer la grille, ou continuer pour %d pièces ?" % cost,

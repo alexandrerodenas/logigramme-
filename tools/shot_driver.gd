@@ -46,6 +46,31 @@ func _run() -> void:
 	gs._apply_aid("verify")
 	await _wait(0.8)
 	await _shot("5_partie")
+	# Valider une grille incomplète : rien n'est compté faux.
+	await _wait(2.5)
+	gs._submit()
+	await _wait(0.6)
+	await _shot("50_valider_incomplet")
+	await _wait(2.5)
+	# Grille pleine mais fausse (pastilles décalées d'un cran) puis validation.
+	for k in g.marks:
+		if not String(k).begins_with("0_"):
+			continue
+		var ab: PackedStringArray = k.split("_")
+		var arr: PackedByteArray = g.marks[k]
+		arr.fill(GridView.EMPTY)
+		for rv in g._n:
+			for cv in g._n:
+				if PuzzleGenerator.is_match(g.pz, int(ab[0]), rv, int(ab[1]), cv):
+					arr[rv * g._n + (cv + 1) % g._n] = GridView.CHECK
+		g.marks[k] = arr
+	g._commit([["0_1", 0, 0]])
+	await _wait(1.2)
+	await _shot("51_grille_pleine")
+	gs._submit()
+	await _wait(0.6)
+	await _shot("52_valider_faux")
+	await _wait(2.5)
 	# Résout la grille d'un coup pour voir la victoire.
 	for k in g.marks:
 		var ab: PackedStringArray = k.split("_")
@@ -55,6 +80,7 @@ func _run() -> void:
 		g.marks[k] = arr
 	gs.elapsed = 20.0
 	g._commit([["0_1", 0, 0]])
+	gs._submit()
 	await _wait(3.5)
 	await _shot("6_victoire")
 	main.close_popup()
