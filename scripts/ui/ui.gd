@@ -5,7 +5,7 @@ extends RefCounted
 const CREAM := Color("fff8ec")
 const PAPER := Color("fffdf8")
 const INK := Color("3d3047")
-const INK_SOFT := Color("7a6b85")
+const INK_SOFT := Color("66577a")
 const CORAL := Color("ff7a59")
 const YELLOW := Color("ffc93c")
 const MINT := Color("4cc39d")
@@ -60,6 +60,12 @@ static func label(text: String, size: int = 26, color: Color = INK, weight: int 
 	l.add_theme_font_size_override("font_size", size)
 	l.add_theme_color_override("font_color", color)
 	return l
+
+
+## Liseré autour du texte, pour qu'un texte clair reste lisible sur un fond clair.
+static func outline(l: Label, color: Color, px: int) -> void:
+	l.add_theme_color_override("font_outline_color", color)
+	l.add_theme_constant_override("outline_size", px)
 
 
 static func icon_rect(name: String, size: float) -> TextureRect:
