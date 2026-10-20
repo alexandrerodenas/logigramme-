@@ -68,6 +68,15 @@ static func outline(l: Label, color: Color, px: int) -> void:
 	l.add_theme_constant_override("outline_size", px)
 
 
+## Un contrôle qui consomme l'appui empêche de glisser le défilement parent : on le laisse passer.
+static func pass_drags(node: Control) -> void:
+	if node.mouse_filter == Control.MOUSE_FILTER_STOP:
+		node.mouse_filter = Control.MOUSE_FILTER_PASS
+	for c in node.get_children():
+		if c is Control:
+			pass_drags(c)
+
+
 static func icon_rect(name: String, size: float) -> TextureRect:
 	var r := TextureRect.new()
 	r.texture = icon(name)

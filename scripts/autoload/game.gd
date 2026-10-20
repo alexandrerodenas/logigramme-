@@ -56,6 +56,7 @@ func _ready() -> void:
 		ACHIEVEMENTS.append({"id": "world%d" % w, "icon": wd.icon, "name": wd.trophy,
 			"desc": "Terminer %s." % place, "stat": "world%d" % w, "goal": 1, "coins": 40 + 10 * w})
 	_load()
+	Lang.code = language()
 
 
 func _default() -> Dictionary:
@@ -358,7 +359,7 @@ func rank_index() -> int:
 
 
 func rank_name(i: int = -1) -> String:
-	return RANKS[rank_index() if i < 0 else i][1]
+	return Lang.t(RANKS[rank_index() if i < 0 else i][1])
 
 
 ## Progression vers le rang suivant, entre 0 et 1.
@@ -397,6 +398,17 @@ func daily_streak() -> int:
 
 ## Valeur par défaut des réglages absents de la sauvegarde.
 const SETTING_DEFAULTS := {"sound": true, "music": true, "vibration": true, "auto_cross": false}
+
+
+## Langue de l'interface : « fr » ou « en ». Par défaut, celle de l'appareil.
+func language() -> String:
+	return String(data.get("lang", "fr" if OS.get_locale_language() == "fr" else "en"))
+
+
+func set_language(code: String) -> void:
+	data.lang = code
+	Lang.code = code
+	save()
 
 
 func setting(id: String) -> bool:

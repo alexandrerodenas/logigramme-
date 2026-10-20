@@ -84,7 +84,7 @@ func _ready() -> void:
 	# Titre court : la barre porte aussi le balai et la roue des réglages.
 	if cfg.get("daily", false) or boss:
 		title.add_child(UI.icon_rect("calendar" if cfg.get("daily", false) else "crown", 44))
-	var t_text := "Défi" if cfg.get("daily", false) else ("Énigme" if boss else "Niveau %d" % cfg.level)
+	var t_text := Lang.t("Défi") if cfg.get("daily", false) else (Lang.t("Énigme") if boss else Lang.t("Niveau %d") % cfg.level)
 	var t_lbl := UI.label(t_text, 30, UI.INK, 700)
 	t_lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	t_lbl.clip_text = true
@@ -139,7 +139,7 @@ func _ready() -> void:
 	_loading.custom_minimum_size.y = 360
 	var spin := UI.icon_rect("loupe", 110)
 	_loading.add_child(spin)
-	var lt := UI.label("Le village prépare ton énigme…", 26, UI.INK_SOFT, 500)
+	var lt := UI.label(Lang.t("Le village prépare ton énigme…"), 26, UI.INK_SOFT, 500)
 	lt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_loading.add_child(lt)
 	card.add_child(_loading)
@@ -148,8 +148,8 @@ func _ready() -> void:
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 10)
 	head.add_child(UI.icon_rect("scroll", 40))
-	head.add_child(UI.label("Indices", 32, UI.INK, 700))
-	var hint := UI.label("touche pour rayer", 20, UI.INK_SOFT)
+	head.add_child(UI.label(Lang.t("Indices"), 32, UI.INK, 700))
+	var hint := UI.label(Lang.t("touche pour rayer"), 20, UI.INK_SOFT)
 	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	head.add_child(hint)
@@ -378,7 +378,7 @@ func _render_clue(i: int, animate: bool) -> void:
 	(n.badge as PanelContainer).add_theme_stylebox_override("panel", bsb)
 	(n.lock as Control).visible = is_sealed
 	if is_sealed:
-		lbl.text = "Indice scellé : touche pour l'ouvrir avec une clé."
+		lbl.text = Lang.t("Indice scellé : touche pour l'ouvrir avec une clé.")
 		lbl.add_theme_color_override("font_color", UI.LAVENDER.darkened(0.3))
 		panel.modulate = Color.WHITE
 		return
@@ -425,7 +425,7 @@ func _submit() -> void:
 		return
 	if r > 0:
 		Sfx.play("error")
-		main.toast("puzzle", "Grille incomplète", "Il manque %d pastille%s dans les blocs du haut." % [r, "s" if r > 1 else ""])
+		main.toast("puzzle", Lang.t("Grille incomplète"), Lang.t("Il manque %d pastille%s dans les blocs du haut.") % [r, "s" if r > 1 else ""])
 		_shake(_submit_btn)
 		return
 	var wrong := -r
@@ -437,13 +437,13 @@ func _submit() -> void:
 		tw.tween_property(_card, "position:x", x + 16, 0.05)
 		tw.tween_property(_card, "position:x", x - 16, 0.05)
 	tw.tween_property(_card, "position:x", x, 0.05)
-	var sub := "%d pastille%s mal placée%s. Cherche ce qui cloche." % [wrong, "s" if wrong > 1 else "", "s" if wrong > 1 else ""]
+	var sub := Lang.t("%d pastille%s mal placée%s. Cherche ce qui cloche.") % [wrong, "s" if wrong > 1 else "", "s" if wrong > 1 else ""]
 	if mods.has("hearts"):
 		_lose_heart()
 		if hearts > 0:
-			sub += " Il te reste %d cœur%s." % [hearts, "s" if hearts > 1 else ""]
+			sub += Lang.t(" Il te reste %d cœur%s.") % [hearts, "s" if hearts > 1 else ""]
 	if not _failed:
-		main.toast("broken", "Ce n'est pas encore ça", sub)
+		main.toast("broken", Lang.t("Ce n'est pas encore ça"), sub)
 
 
 func _on_grid_changed() -> void:
@@ -471,7 +471,7 @@ func _refresh_submit() -> void:
 func _aid_bar() -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
-	var undo := _aid_button("undo", "Annuler", "", UI.SKY)
+	var undo := _aid_button("undo", Lang.tc("Annuler", "Undo"), "", UI.SKY)
 	undo.pressed.connect(func():
 		if not _grid.undo():
 			Sfx.play("error"))
@@ -479,11 +479,11 @@ func _aid_bar() -> Control:
 	var colors := {"verify": UI.MINT, "loupe": UI.YELLOW, "eclair": UI.LAVENDER}
 	for id in ["verify", "loupe", "eclair"]:
 		var a: Dictionary = Game.AIDS[id]
-		var b := _aid_button(a.icon, a.name, str(a.cost), colors[id])
+		var b := _aid_button(a.icon, Lang.t(a.name), str(a.cost), colors[id])
 		b.pressed.connect(_use_aid.bind(id))
 		row.add_child(b)
 		_aid_buttons[id] = b
-	_submit_btn = _aid_button("target", "Valider", "", UI.CORAL)
+	_submit_btn = _aid_button("target", Lang.t("Valider"), "", UI.CORAL)
 	_submit_btn.size_flags_stretch_ratio = 1.25
 	_submit_btn.pressed.connect(_submit)
 	row.add_child(_submit_btn)
@@ -553,17 +553,17 @@ func _use_aid(id: String) -> void:
 	var a: Dictionary = Game.AIDS[id]
 	if not Game.is_aid_unlocked(id):
 		var u: Array = a.unlock
-		main.toast("lock", "%s verrouillée" % a.name, "Se débloque après le niveau %d (%s)." % [u[1], Worlds.WORLDS[u[0]].name])
+		main.toast("lock", Lang.t("%s verrouillée") % Lang.t(a.name), Lang.t("Se débloque après le niveau %d (%s).") % [u[1], Lang.t(Worlds.WORLDS[u[0]].name)])
 		Sfx.play("error")
 		return
 	if Game.coins() < int(a.cost):
-		main.toast("coin", "Pas assez de pièces", "Gagne-en en résolvant des grilles et des défis.")
+		main.toast("coin", Lang.t("Pas assez de pièces"), Lang.t("Gagne-en en résolvant des grilles et des défis."))
 		Sfx.play("error")
 		_shake(_coins)
 		return
 	if not used_aid and id != "verify":
-		main.message(a.icon, "%s ?" % a.name, "%s\nCoût : %d pièces. Cette grille ne pourra plus rapporter que 1 étoile." % [a.desc, a.cost],
-			[["Non", UI.SKY], ["Utiliser", UI.CORAL, func(): _apply_aid(id)]])
+		main.message(a.icon, Lang.t("%s ?") % Lang.t(a.name), Lang.t("%s\nCoût : %d pièces. Cette grille ne pourra plus rapporter que 1 étoile.") % [Lang.t(a.desc), a.cost],
+			[[Lang.t("Non"), UI.SKY], [Lang.t("Utiliser"), UI.CORAL, func(): _apply_aid(id)]])
 	else:
 		_apply_aid(id)
 
@@ -577,20 +577,20 @@ func _apply_aid(id: String) -> void:
 			var errs := _grid.check_errors()
 			Game.spend(int(a.cost))
 			if errs == 0:
-				main.toast("check", "Aucune erreur !", "Tout ce que tu as placé est juste.")
+				main.toast("check", Lang.t("Aucune erreur !"), Lang.t("Tout ce que tu as placé est juste."))
 			else:
-				main.toast("check", "%d erreur%s" % [errs, "s" if errs > 1 else ""], "Les cases fausses sont en rouge.")
+				main.toast("check", Lang.t("%d erreur%s") % [errs, "s" if errs > 1 else ""], Lang.t("Les cases fausses sont en rouge."))
 				Sfx.play("error")
 			return
 		"loupe":
 			if _grid.check_errors() > 0:
-				main.toast("loupe", "Corrige d'abord", "Il y a des cases fausses (en rouge). Aucune pièce dépensée.")
+				main.toast("loupe", Lang.t("Corrige d'abord"), Lang.t("Il y a des cases fausses (en rouge). Aucune pièce dépensée."))
 				return
 			effect = 1 if _grid.reveal_one() else 0
 		"eclair":
 			effect = _grid.apply_simple_clues()
 			if effect == 0:
-				main.toast("eclair", "Rien à appliquer", "Les indices simples sont déjà dans ta grille. Aucune pièce dépensée.")
+				main.toast("eclair", Lang.t("Rien à appliquer"), Lang.t("Les indices simples sont déjà dans ta grille. Aucune pièce dépensée."))
 				return
 			Sfx.play("unlock")
 	if effect == 0:
@@ -613,9 +613,9 @@ func _shake(c: Control) -> void:
 
 func _tutorial() -> void:
 	var steps := [
-		["detective", "Ta première enquête", "Chaque habitant a exactement une valeur dans chaque catégorie, et jamais la même qu'un autre. À toi de trouver qui va avec quoi grâce aux indices."],
-		["puzzle", "La grille", "Touche une case une fois pour une croix (impossible), deux fois pour une pastille verte (c'est bien ça !), trois fois pour la vider. Quand chaque habitant a sa pastille dans chaque catégorie, touche Valider : rien n'est compté comme faux avant. Les croix et les autres blocs sont là pour t'aider. Une seule pastille est permise par ligne et par colonne d'un bloc. Le balai efface toute la grille, la roue dentée ouvre les réglages."],
-		["coin", "Étoiles et pièces", "Résous vite et sans aide pour gagner 3 étoiles. Les pièces gagnées servent à acheter des aides quand tu bloques."],
+		["detective", Lang.t("Ta première enquête"), Lang.t("Chaque habitant a exactement une valeur dans chaque catégorie, et jamais la même qu'un autre. À toi de trouver qui va avec quoi grâce aux indices.")],
+		["puzzle", Lang.t("La grille"), Lang.t("Touche une case une fois pour une croix (impossible), deux fois pour une pastille verte (c'est bien ça !), trois fois pour la vider. Quand chaque habitant a sa pastille dans chaque catégorie, touche Valider : rien n'est compté comme faux avant. Les croix et les autres blocs sont là pour t'aider. Une seule pastille est permise par ligne et par colonne d'un bloc. Le balai efface toute la grille, la roue dentée ouvre les réglages.")],
+		["coin", Lang.t("Étoiles et pièces"), Lang.t("Résous vite et sans aide pour gagner 3 étoiles. Les pièces gagnées servent à acheter des aides quand tu bloques.")],
 	]
 	_tutorial_step(steps, 0)
 
@@ -626,7 +626,7 @@ func _tutorial_step(steps: Array, i: int) -> void:
 		Game.save()
 		return
 	var s: Array = steps[i]
-	var label := "Compris !" if i == steps.size() - 1 else "Suivant"
+	var label := Lang.t("Compris !") if i == steps.size() - 1 else Lang.t("Suivant")
 	main.message(s[0], s[1], s[2], [[label, UI.CORAL, func(): _tutorial_step(steps, i + 1)]], false)
 
 
@@ -657,7 +657,7 @@ func _alive() -> bool:
 func _victory(r: Dictionary) -> void:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 14)
-	var words := ["Bravo !", "Élémentaire !", "Brillant !", "Quel flair !", "Magnifique !", "Bien joué !"]
+	var words := [Lang.t("Bravo !"), Lang.t("Élémentaire !"), Lang.t("Brillant !"), Lang.t("Quel flair !"), Lang.t("Magnifique !"), Lang.t("Bien joué !")]
 	var title := UI.label(words[randi() % words.size()], 56, Worlds.color(world, "accent").darkened(0.1), 700)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(title)
@@ -674,9 +674,9 @@ func _victory(r: Dictionary) -> void:
 		stars.append(s)
 
 	var crit := [
-		[true, "Grille résolue"],
-		[r.no_aid, "Sans Loupe ni Éclair"],
-		[r.fast, "En moins de %s (toi : %s)" % [UI.format_time(r.par), UI.format_time(r.time)]],
+		[true, Lang.t("Grille résolue")],
+		[r.no_aid, Lang.t("Sans Loupe ni Éclair")],
+		[r.fast, Lang.t("En moins de %s (toi : %s)") % [UI.format_time(r.par), UI.format_time(r.time)]],
 	]
 	for c in crit:
 		var h := HBoxContainer.new()
@@ -691,29 +691,29 @@ func _victory(r: Dictionary) -> void:
 	box.add_child(rewards)
 	var coin_pill := UI.pill("coin", "+0", Color("fff1c7"))
 	rewards.add_child(coin_pill)
-	rewards.add_child(UI.pill("glow", "+%d XP" % r.xp, Color("efe6ff")))
+	rewards.add_child(UI.pill("glow", Lang.t("+%d XP") % r.xp, Color("efe6ff")))
 
 	var extras := VBoxContainer.new()
 	extras.add_theme_constant_override("separation", 8)
 	box.add_child(extras)
 	if r.get("mod_bonus", 0) > 0:
-		extras.add_child(_banner(Worlds.MODS[mods[0]].icon, "Bonus niveau spécial : +%d pièces" % r.mod_bonus, Color(Worlds.MODS[mods[0]].color)))
+		extras.add_child(_banner(Worlds.MODS[mods[0]].icon, Lang.t("Bonus niveau spécial : +%d pièces") % r.mod_bonus, Color(Worlds.MODS[mods[0]].color)))
 	if r.chest > 0:
-		extras.add_child(_banner("gift", "Coffre ouvert : +%d pièces !" % r.chest, UI.CORAL))
+		extras.add_child(_banner("gift", Lang.t("Coffre ouvert : +%d pièces !") % r.chest, UI.CORAL))
 	if r.get("streak", 0) > 0:
-		extras.add_child(_banner("fire", "Série de %d jour%s !" % [r.streak, "s" if r.streak > 1 else ""], UI.CORAL))
+		extras.add_child(_banner("fire", Lang.t("Série de %d jour%s !") % [r.streak, "s" if r.streak > 1 else ""], UI.CORAL))
 	if r.rank_after != r.rank_before:
-		extras.add_child(_banner("crown", "Nouveau rang : %s !" % Game.rank_name(r.rank_after), UI.LAVENDER))
+		extras.add_child(_banner("crown", Lang.t("Nouveau rang : %s !") % Game.rank_name(r.rank_after), UI.LAVENDER))
 	for id in r.new_aids:
-		extras.add_child(_banner(Game.AIDS[id].icon, "Nouvelle aide : %s" % Game.AIDS[id].name, UI.MINT.darkened(0.2)))
+		extras.add_child(_banner(Game.AIDS[id].icon, Lang.t("Nouvelle aide : %s") % Lang.t(Game.AIDS[id].name), UI.MINT.darkened(0.2)))
 	if r.world_unlocked >= 0:
-		extras.add_child(_banner(Worlds.WORLDS[r.world_unlocked].icon, "Nouveau quartier : %s !" % Worlds.WORLDS[r.world_unlocked].name, UI.SKY.darkened(0.2)))
+		extras.add_child(_banner(Worlds.WORLDS[r.world_unlocked].icon, Lang.t("Nouveau quartier : %s !") % Lang.t(Worlds.WORLDS[r.world_unlocked].name), UI.SKY.darkened(0.2)))
 
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 14)
 	box.add_child(row)
 	var is_daily: bool = cfg.get("daily", false)
-	var to_map := UI.button("Accueil" if is_daily else "Parcours", UI.SKY, "house" if is_daily else "map", 28)
+	var to_map := UI.button(Lang.t("Accueil") if is_daily else Lang.t("Parcours"), UI.SKY, "house" if is_daily else "map", 28)
 	to_map.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	to_map.pressed.connect(func():
 		main.close_popup()
@@ -725,7 +725,7 @@ func _victory(r: Dictionary) -> void:
 	if not is_daily:
 		var nxt := _next_after()
 		if not nxt.is_empty():
-			var go_next := UI.button("Suivant", Worlds.color(world, "accent"), "puzzle", 28)
+			var go_next := UI.button(Lang.t("Suivant"), Worlds.color(world, "accent"), "puzzle", 28)
 			go_next.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			go_next.pressed.connect(func():
 				main.close_popup()
@@ -752,7 +752,7 @@ func _victory(r: Dictionary) -> void:
 	var total: int = r.coins
 	# Tween porté par la pastille : il s'arrête avec elle si la fenêtre se ferme.
 	var tw := coin_pill.create_tween()
-	tw.tween_method(func(v: float): UI.set_pill(coin_pill, "+%d" % int(v)), 0.0, float(total), 0.8)
+	tw.tween_method(func(v: float): UI.set_pill(coin_pill, Lang.t("+%d") % int(v)), 0.0, float(total), 0.8)
 	if total > 0:
 		main.fly_icons("coin", coin_pill.global_position + coin_pill.size / 2.0, _coins.global_position + _coins.size / 2.0, min(10, 3 + total / 10))
 	for a in r.achievements:
@@ -760,7 +760,7 @@ func _victory(r: Dictionary) -> void:
 		if not is_inside_tree():
 			return
 		Sfx.play("unlock")
-		main.toast(a.icon, "Trophée : %s" % a.name, "%s  +%d pièces" % [a.desc, a.coins])
+		main.toast(a.icon, Lang.t("Trophée : %s") % Lang.t(a.name), Lang.t("%s  +%d pièces") % [Lang.t(a.desc), a.coins])
 
 
 func _next_after() -> Array:
@@ -812,7 +812,7 @@ func _mod_bar() -> Control:
 		h.add_theme_constant_override("separation", 6)
 		chip.add_child(h)
 		h.add_child(UI.icon_rect(def.icon, 30))
-		var l := UI.label(def.name, 21, Color.WHITE, 600)
+		var l := UI.label(Lang.t(def.name), 21, Color.WHITE, 600)
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		h.add_child(l)
 		var extra := HBoxContainer.new()
@@ -820,7 +820,7 @@ func _mod_bar() -> Control:
 		h.add_child(extra)
 		chip.gui_input.connect(func(e):
 			if e is InputEventMouseButton and e.pressed:
-				main.toast(def.icon, def.name, def.desc))
+				main.toast(def.icon, Lang.t(def.name), Lang.t(def.desc)))
 		row.add_child(chip)
 		_mod_chips[m] = {"chip": chip, "extra": extra}
 	return row
@@ -837,7 +837,7 @@ func _refresh_mods(pop: bool = false) -> void:
 		var extra: HBoxContainer = _mod_chips.fog.extra
 		for c in extra.get_children():
 			c.queue_free()
-		extra.add_child(UI.label("× %d" % keys, 24, Color.WHITE, 700))
+		extra.add_child(UI.label(Lang.t("× %d") % keys, 24, Color.WHITE, 700))
 		if pop:
 			var chip: Control = _mod_chips.fog.chip
 			chip.pivot_offset = chip.size / 2.0
@@ -865,12 +865,12 @@ func _open_sealed(i: int) -> void:
 		keys -= 1
 		_unseal(i)
 		return
-	main.message("key", "Pas de clé", "Place une bonne pastille verte pour gagner une clé, ou ouvre cet indice tout de suite pour 15 pièces.",
-		[["Attendre", UI.SKY], ["Ouvrir (15)", UI.LAVENDER, func():
+	main.message("key", Lang.t("Pas de clé"), Lang.t("Place une bonne pastille verte pour gagner une clé, ou ouvre cet indice tout de suite pour 15 pièces."),
+		[[Lang.t("Attendre"), UI.SKY], [Lang.t("Ouvrir (15)"), UI.LAVENDER, func():
 			if Game.spend(15):
 				_unseal(i)
 			else:
-				main.toast("coin", "Pas assez de pièces", "")]])
+				main.toast("coin", Lang.t("Pas assez de pièces"), "")]])
 
 
 func _unseal(i: int) -> void:
@@ -898,12 +898,12 @@ func _lose_heart() -> void:
 
 func _fail(kind: String) -> void:
 	_failed = true
-	var title := "Plus de cœurs !" if kind == "hearts" else "Temps écoulé !"
-	var body := "Trois grilles fausses validées : l'enquête dérape." if kind == "hearts" else "Le sablier est vide."
+	var title := Lang.t("Plus de cœurs !") if kind == "hearts" else Lang.t("Temps écoulé !")
+	var body := Lang.t("Trois grilles fausses validées : l'enquête dérape.") if kind == "hearts" else Lang.t("Le sablier est vide.")
 	var cost := 25
-	var cont := "+2 cœurs" if kind == "hearts" else "+1 minute"
-	main.message("broken" if kind == "hearts" else "hourglass", title, body + "\nRecommencer la grille, ou continuer pour %d pièces ?" % cost,
-		[["Recommencer", UI.SKY, _restart], ["%s (%d)" % [cont, cost], UI.CORAL, func():
+	var cont := Lang.t("+2 cœurs") if kind == "hearts" else Lang.t("+1 minute")
+	main.message("broken" if kind == "hearts" else "hourglass", title, body + Lang.t("\nRecommencer la grille, ou continuer pour %d pièces ?") % cost,
+		[[Lang.t("Recommencer"), UI.SKY, _restart], [Lang.t("%s (%d)") % [cont, cost], UI.CORAL, func():
 			if Game.spend(cost):
 				if kind == "hearts":
 					hearts = 2
@@ -913,7 +913,7 @@ func _fail(kind: String) -> void:
 				_refresh_mods()
 				_save_progress()
 			else:
-				main.toast("coin", "Pas assez de pièces", "On recommence la grille.")
+				main.toast("coin", Lang.t("Pas assez de pièces"), Lang.t("On recommence la grille."))
 				_restart()]], false)
 
 
@@ -940,20 +940,20 @@ func _intros() -> void:
 	var queue: Array = []
 	var seen: Dictionary = Game.data.seen_intros
 	if cfg.get("boss", false):
-		queue.append(["crown", "Grande énigme !", "La dernière enquête du quartier : %d catégories à démêler. Un gros coffre attend au bout." % puzzle.n_cats])
+		queue.append(["crown", Lang.t("Grande énigme !"), Lang.t("La dernière enquête du quartier : %d catégories à démêler. Un gros coffre attend au bout.") % puzzle.n_cats])
 	for m in mods:
 		if not seen.has(m):
 			seen[m] = true
 			var def: Dictionary = Worlds.MODS[m]
-			queue.append([def.icon, "Niveau spécial : %s" % def.name, def.desc + " Bonus de pièces à la clé."])
+			queue.append([def.icon, Lang.t("Niveau spécial : %s") % Lang.t(def.name), Lang.t(def.desc) + Lang.t(" Bonus de pièces à la clé.")])
 	if puzzle.clues.any(func(c): return int(c.type) == PuzzleGenerator.ClueType.PAIR) and not seen.has("pair"):
 		seen.pair = true
 		var d: Dictionary = Worlds.CLUE_INTROS.pair
-		queue.append([d.icon, d.title, d.text])
+		queue.append([d.icon, Lang.t(d.title), Lang.t(d.text)])
 	if puzzle.cats.any(func(c): return c.get("kind", "") == "street") and not seen.has("street"):
 		seen.street = true
 		var d: Dictionary = Worlds.CLUE_INTROS.street
-		queue.append([d.icon, d.title, d.text])
+		queue.append([d.icon, Lang.t(d.title), Lang.t(d.text)])
 	Game.save()
 	_show_queue(queue, 0)
 
@@ -963,7 +963,7 @@ func _show_queue(queue: Array, i: int) -> void:
 		return
 	var q: Array = queue[i]
 	Sfx.play("unlock")
-	main.message(q[0], q[1], q[2], [["Compris !", UI.CORAL, func(): _show_queue(queue, i + 1)]], false)
+	main.message(q[0], q[1], q[2], [[Lang.t("Compris !"), UI.CORAL, func(): _show_queue(queue, i + 1)]], false)
 
 
 ## Efface toutes les marques et les indices rayés pour repartir de zéro, sans confirmation

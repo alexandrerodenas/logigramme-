@@ -120,6 +120,7 @@ func popup(content: Control, dismissable: bool = true) -> PanelContainer:
 	panel.add_child(scroll)
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(content)
+	UI.pass_drags(content)
 	var fit := func():
 		var h: float = content.get_combined_minimum_size().y
 		scroll.custom_minimum_size.y = min(h, get_viewport_rect().size.y - 140.0)
@@ -189,15 +190,15 @@ func message(icon_name: String, title: String, body: String, buttons: Array, dis
 func settings(full: bool = false) -> void:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 14)
-	var t := UI.label("Réglages", 44, UI.INK, 700)
+	var t := UI.label(Lang.t("Réglages"), 44, UI.INK, 700)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(t)
-	for spec in [["sound", "Sons", "sound"], ["music", "Musique", "music"], ["vibration", "Vibrations", "phone"],
-			["auto_cross", "Croix automatiques", "cross"]]:
+	for spec in [["sound", Lang.t("Sons"), "sound"], ["music", Lang.t("Musique"), "music"], ["vibration", Lang.t("Vibrations"), "phone"],
+			["auto_cross", Lang.t("Croix automatiques"), "cross"]]:
 		var id: String = spec[0]
 		var b := UI.button("", UI.MINT, spec[2], 28)
 		var refresh := func():
-			b.text = "%s : %s" % [spec[1], "oui" if Game.setting(id) else "non"]
+			b.text = "%s : %s" % [spec[1], Lang.t("oui") if Game.setting(id) else Lang.t("non")]
 			var col: Color = UI.MINT if Game.setting(id) else Color("b9adc4")
 			for st in ["normal", "hover", "pressed"]:
 				var sb: StyleBoxFlat = b.get_theme_stylebox(st)
@@ -209,24 +210,35 @@ func settings(full: bool = false) -> void:
 			refresh.call()
 			Sfx.update_music())
 		box.add_child(b)
-	var note := UI.label("Croix automatiques : une pastille barre d'elle-même le reste de sa ligne et de sa colonne.", 20, UI.INK_SOFT)
+	var lang := UI.button("", UI.SKY, "earth", 28)
+	lang.text = "%s : %s" % [Lang.t("Langue"), Lang.t("English") if Lang.is_en() else Lang.t("Français")]
+	lang.pressed.connect(func():
+		Game.set_language("en" if not Lang.is_en() else "fr")
+		close_popup()
+		if screen_name == "game":
+			# Une partie en cours garde ses textes : la langue s'applique à la grille suivante.
+			toast("earth", Lang.t("Langue"), Lang.t("Appliquée à la prochaine grille."))
+		else:
+			go(screen_name, _params))
+	box.add_child(lang)
+	var note := UI.label(Lang.t("Croix automatiques : une pastille barre d'elle-même le reste de sa ligne et de sa colonne."), 20, UI.INK_SOFT)
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(note)
 	if full:
-		var reset := UI.button("Recommencer à zéro", UI.CORAL, "broom", 26)
+		var reset := UI.button(Lang.t("Recommencer à zéro"), UI.CORAL, "broom", 26)
 		reset.pressed.connect(func():
 			close_popup()
-			message("broom", "Tout effacer ?", "Étoiles, pièces, trophées et progression seront perdus.",
-				[["Annuler", UI.SKY], ["Effacer", UI.CORAL, func():
+			message("broom", Lang.t("Tout effacer ?"), Lang.t("Étoiles, pièces, trophées et progression seront perdus."),
+				[[Lang.t("Annuler"), UI.SKY], [Lang.t("Effacer"), UI.CORAL, func():
 					Game.reset()
 					go("home")]]))
 		box.add_child(reset)
-		var credits := UI.label("Icônes Twemoji (CC BY 4.0, Twitter et contributeurs) · Police Fredoka (SIL OFL) · Fait avec Godot", 18, UI.INK_SOFT)
+		var credits := UI.label(Lang.t("Icônes Twemoji (CC BY 4.0, Twitter et contributeurs) · Police Fredoka (SIL OFL) · Fait avec Godot"), 18, UI.INK_SOFT)
 		credits.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		credits.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		box.add_child(credits)
-	var ok := UI.button("Fermer", UI.SKY)
+	var ok := UI.button(Lang.t("Fermer"), UI.SKY)
 	ok.pressed.connect(close_popup)
 	box.add_child(ok)
 	popup(box)

@@ -29,6 +29,8 @@ func _ready() -> void:
 	add_child(_scroll)
 	_map = Control.new()
 	_map.custom_minimum_size = Vector2(_width, _total_h)
+	# Laisse passer les glissements au défilement : sinon la carte consomme l'appui et ne défile plus.
+	_map.mouse_filter = Control.MOUSE_FILTER_PASS
 	_map.draw.connect(_draw_map)
 	_scroll.add_child(_map)
 
@@ -179,7 +181,7 @@ func _draw_map() -> void:
 		var bob_y := sin(_t * 2.0 + w) * 6.0
 		if ic:
 			_map.draw_texture_rect(ic, Rect2(banner.position + Vector2(-30, -50 + bob_y), Vector2(110, 110)), false)
-		var title: String = world.name
+		var title: String = Lang.t(world.name)
 		var fs := 46
 		var tw := font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 		var tx := banner.position.x + (banner.size.x - tw) / 2.0 + 20
@@ -187,9 +189,9 @@ func _draw_map() -> void:
 		var sub: String
 		if locked:
 			var need := int(world.stars_needed)
-			sub = "Finis le monde précédent" + (" et réunis %d étoiles" % need if need > 0 else "")
+			sub = Lang.t("Finis le monde précédent") + (Lang.t(" et réunis %d étoiles") % need if need > 0 else "")
 		else:
-			sub = "%s  ·  %d/%d étoiles" % [world.tagline, Game.world_stars(w), Worlds.LEVELS_PER_WORLD * 3]
+			sub = Lang.t("%s  ·  %d/%d étoiles") % [Lang.t(world.tagline), Game.world_stars(w), Worlds.LEVELS_PER_WORLD * 3]
 		var f2 := UI.font(500)
 		var fs2 := 23
 		var sw := f2.get_string_size(sub, HORIZONTAL_ALIGNMENT_LEFT, -1, fs2).x
@@ -235,9 +237,9 @@ func _on_node(w: int, l: int) -> void:
 		tw.tween_property(n, "rotation", 0.0, 0.05)
 		if not Game.is_world_unlocked(w):
 			var need := int(Worlds.WORLDS[w].stars_needed)
-			main.toast("lock", "Quartier verrouillé", "Termine le monde précédent" + (" et réunis %d étoiles." % need if need > 0 else "."))
+			main.toast("lock", Lang.t("Quartier verrouillé"), Lang.t("Termine le monde précédent") + (Lang.t(" et réunis %d étoiles.") % need if need > 0 else "."))
 		else:
-			main.toast("lock", "Pas encore !", "Termine d'abord le niveau %d." % (l - 1))
+			main.toast("lock", Lang.t("Pas encore !"), Lang.t("Termine d'abord le niveau %d.") % (l - 1))
 		return
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 16)
@@ -247,11 +249,11 @@ func _on_node(w: int, l: int) -> void:
 	var boss := Worlds.is_boss(l)
 	if boss:
 		ic.texture = UI.icon("crown")
-	var t := UI.label("Grande énigme" if boss else "Niveau %d" % l, 48, UI.INK, 700)
+	var t := UI.label(Lang.t("Grande énigme") if boss else Lang.t("Niveau %d") % l, 48, UI.INK, 700)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(t)
 	var size_arr := Worlds.level_size(w, l)
-	var sub := UI.label("%s · %d catégories × %d" % [world.name, size_arr[0], size_arr[1]], 24, UI.INK_SOFT)
+	var sub := UI.label(Lang.t("%s · %d catégories × %d") % [Lang.t(world.name), size_arr[0], size_arr[1]], 24, UI.INK_SOFT)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(sub)
 	var stars_row := HBoxContainer.new()
@@ -274,21 +276,21 @@ func _on_node(w: int, l: int) -> void:
 		ch.add_theme_constant_override("separation", 10)
 		chip.add_child(ch)
 		ch.add_child(UI.icon_rect(def.icon, 44))
-		var cl := UI.label("%s : %s" % [def.name, def.desc], 21, Color.WHITE, 600)
+		var cl := UI.label("%s : %s" % [Lang.t(def.name), Lang.t(def.desc)], 21, Color.WHITE, 600)
 		cl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		cl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		ch.add_child(cl)
 		box.add_child(chip)
-	var rules := UI.label("1 étoile : résoudre la grille\n2 étoiles : sans Loupe ni Éclair\n3 étoiles : sans aide et sous le temps de référence", 21, UI.INK_SOFT)
+	var rules := UI.label(Lang.t("1 étoile : résoudre la grille\n2 étoiles : sans Loupe ni Éclair\n3 étoiles : sans aide et sous le temps de référence"), 21, UI.INK_SOFT)
 	rules.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(rules)
 	if l % Worlds.CHEST_EVERY == 0 and not Game.is_solved(w, l):
 		var chest := HBoxContainer.new()
 		chest.alignment = BoxContainer.ALIGNMENT_CENTER
 		chest.add_child(UI.icon_rect("gift", 44))
-		chest.add_child(UI.label("Coffre au trésor à la clé !", 24, UI.CORAL, 600))
+		chest.add_child(UI.label(Lang.t("Coffre au trésor à la clé !"), 24, UI.CORAL, 600))
 		box.add_child(chest)
-	var play := UI.button("Jouer", Worlds.color(w, "accent"), "puzzle", 36)
+	var play := UI.button(Lang.t("Jouer"), Worlds.color(w, "accent"), "puzzle", 36)
 	play.custom_minimum_size.y = 100
 	play.pressed.connect(func():
 		main.close_popup()
@@ -308,5 +310,5 @@ func _announce_worlds() -> void:
 			Sfx.play("unlock")
 			main.confetti(60)
 			var world: Dictionary = Worlds.WORLDS[w]
-			main.message(world.icon, "Nouveau quartier : %s !" % world.name, world.tagline + ". De nouvelles catégories t'attendent.", [["En route !", Worlds.color(w, "accent")]])
+			main.message(world.icon, Lang.t("Nouveau quartier : %s !") % Lang.t(world.name), Lang.t(world.tagline) + Lang.t(". De nouvelles catégories t'attendent."), [[Lang.t("En route !"), Worlds.color(w, "accent")]])
 			return

@@ -68,7 +68,7 @@ func _ready() -> void:
 	title.add_theme_constant_override("shadow_offset_y", 5)
 	title.add_theme_constant_override("shadow_offset_x", 0)
 	logo.add_child(title)
-	var sub := UI.label("Le village des énigmes", 28, UI.INK_SOFT, 500)
+	var sub := UI.label(Lang.t("Le village des énigmes"), 28, UI.INK_SOFT, 500)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	logo.add_child(sub)
 
@@ -83,11 +83,11 @@ func _ready() -> void:
 
 	# Bouton Jouer.
 	var world: Dictionary = Worlds.WORLDS[w]
-	var play := UI.button("Jouer", Worlds.color(w, "accent"), world.icon, 46)
+	var play := UI.button(Lang.t("Jouer"), Worlds.color(w, "accent"), world.icon, 46)
 	play.custom_minimum_size.y = 128
 	play.pressed.connect(func(): main.go("map", {"focus": nxt}))
 	col.add_child(play)
-	var where := UI.label("%s · niveau %d" % [world.name, nxt[1]], 24, UI.INK_SOFT, 600)
+	var where := UI.label(Lang.t("%s · niveau %d") % [Lang.t(world.name), nxt[1]], 24, UI.INK_SOFT, 600)
 	where.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(where)
 	_pulse(play)
@@ -97,15 +97,16 @@ func _ready() -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 14)
 	col.add_child(row)
-	var map := UI.button("Parcours", UI.SKY, "map", 28)
+	var map := UI.button(Lang.t("Parcours"), UI.SKY, "map", 28)
 	map.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	map.pressed.connect(func(): main.go("map", {"focus": nxt}))
 	row.add_child(map)
 	var n_ach: int = Game.data.achievements.size()
-	var tro := UI.button("Trophées %d/%d" % [n_ach, Game.ACHIEVEMENTS.size()], UI.LAVENDER, "trophy", 28)
+	var tro := UI.button(Lang.t("Trophées %d/%d") % [n_ach, Game.ACHIEVEMENTS.size()], UI.LAVENDER, "trophy", 28)
 	tro.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tro.pressed.connect(func(): main.go("trophies"))
 	row.add_child(tro)
+	UI.pass_drags(margin)
 
 	if not Game.data.get("welcomed", false):
 		Game.data.welcomed = true
@@ -113,9 +114,9 @@ func _ready() -> void:
 		await get_tree().create_timer(0.4).timeout
 		if not is_inside_tree() or main.screen != self:
 			return
-		main.message("detective", "Bienvenue au village !",
-			"Les habitants ont besoin d'un fin limier. Résous leurs énigmes, gagne des étoiles et des pièces, et ouvre de nouveaux quartiers.",
-			[["C'est parti !", UI.CORAL]])
+		main.message("detective", Lang.t("Bienvenue au village !"),
+			Lang.t("Les habitants ont besoin d'un fin limier. Résous leurs énigmes, gagne des étoiles et des pièces, et ouvre de nouveaux quartiers."),
+			[[Lang.t("C'est parti !"), UI.CORAL]])
 	Sfx.update_music()
 
 
@@ -160,7 +161,7 @@ func _rank_card() -> Control:
 	var name := UI.label(Game.rank_name(), 32, UI.INK, 700)
 	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	line.add_child(name)
-	var nxt_txt := "Rang max" if i >= Game.RANKS.size() - 1 else "→ %s" % Game.RANKS[i + 1][1]
+	var nxt_txt := Lang.t("Rang max") if i >= Game.RANKS.size() - 1 else Lang.t("→ %s") % Lang.t(Game.RANKS[i + 1][1])
 	line.add_child(UI.label(nxt_txt, 22, UI.INK_SOFT, 500))
 	var bar := ProgressBar.new()
 	bar.show_percentage = false
@@ -171,7 +172,7 @@ func _rank_card() -> Control:
 	bar.add_theme_stylebox_override("fill", UI.box(UI.LAVENDER, 10))
 	v.add_child(bar)
 	create_tween().tween_property(bar, "value", Game.rank_progress(), 0.9).set_delay(0.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	v.add_child(UI.label("%d XP" % Game.xp(), 20, UI.INK_SOFT))
+	v.add_child(UI.label(Lang.t("%d XP") % Game.xp(), 20, UI.INK_SOFT))
 	return p
 
 
@@ -182,10 +183,10 @@ func _worlds_card() -> Control:
 	p.add_child(v)
 	var head := HBoxContainer.new()
 	v.add_child(head)
-	var t := UI.label("Les quartiers", 28, UI.INK, 700)
+	var t := UI.label(Lang.t("Les quartiers"), 28, UI.INK, 700)
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(t)
-	head.add_child(UI.label("%d trophées · %d étoiles" % [Game.data.achievements.size(), Game.total_stars()], 20, UI.INK_SOFT))
+	head.add_child(UI.label(Lang.t("%d trophées · %d étoiles") % [Game.data.achievements.size(), Game.total_stars()], 20, UI.INK_SOFT))
 	var row := GridContainer.new()
 	row.columns = 5
 	row.add_theme_constant_override("h_separation", 6)
@@ -227,18 +228,18 @@ func _daily_card() -> Control:
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	v.add_theme_constant_override("separation", 2)
 	h.add_child(v)
-	v.add_child(UI.label("Défi du jour", 30, UI.INK, 700))
+	v.add_child(UI.label(Lang.t("Défi du jour"), 30, UI.INK, 700))
 	var streak := Game.daily_streak()
 	var line := HBoxContainer.new()
 	line.add_theme_constant_override("separation", 6)
 	v.add_child(line)
 	line.add_child(UI.icon_rect("fire", 28))
-	line.add_child(UI.label("Série : %d jour%s" % [streak, "s" if streak > 1 else ""], 22, UI.CORAL, 600))
+	line.add_child(UI.label(Lang.t("Série : %d jour%s") % [streak, "s" if streak > 1 else ""], 22, UI.CORAL, 600))
 	if Game.daily_done_today():
-		var done := UI.label("Réussi !", 28, UI.MINT.darkened(0.2), 700)
+		var done := UI.label(Lang.t("Réussi !"), 28, UI.MINT.darkened(0.2), 700)
 		h.add_child(done)
 	else:
-		var go_btn := UI.button("+%d" % (40 + 10 * min(streak, 4)), UI.YELLOW, "coin", 26, UI.INK)
+		var go_btn := UI.button(Lang.t("+%d") % (40 + 10 * min(streak, 4)), UI.YELLOW, "coin", 26, UI.INK)
 		go_btn.pressed.connect(func(): main.go("game", {"daily": Game.today_string()}))
 		h.add_child(go_btn)
 		UI.bob(ic, 5.0, 1.6)

@@ -3,6 +3,8 @@ extends SceneTree
 # Vérifie que chaque niveau du parcours (et quelques défis du jour) a une solution unique.
 
 func _init() -> void:
+	# LOGIGRAMME_LANG=en pour vérifier les indices en anglais.
+	Lang.code = OS.get_environment("LOGIGRAMME_LANG") if OS.has_environment("LOGIGRAMME_LANG") else "fr"
 	var gen := PuzzleGenerator.new()
 	var failures := 0
 	var worst := 0

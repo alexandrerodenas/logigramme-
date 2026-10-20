@@ -27,7 +27,7 @@ func _ready() -> void:
 	home.pressed.connect(back)
 	top.add_child(home)
 	top.add_child(UI.icon_rect("trophy", 56))
-	var t := UI.label("Trophées", 44, UI.INK, 700)
+	var t := UI.label(Lang.t("Trophées"), 44, UI.INK, 700)
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(t)
 	top.add_child(UI.pill("trophy", "%d/%d" % [Game.data.achievements.size(), Game.ACHIEVEMENTS.size()]))
@@ -63,8 +63,8 @@ func _ready() -> void:
 		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		v.add_theme_constant_override("separation", 2)
 		h.add_child(v)
-		v.add_child(UI.label(a.name, 28, UI.INK if got else UI.INK_SOFT, 700))
-		var d := UI.label(a.desc, 21, UI.INK_SOFT)
+		v.add_child(UI.label(Lang.t(a.name), 28, UI.INK if got else UI.INK_SOFT, 700))
+		var d := UI.label(Lang.t(a.desc), 21, UI.INK_SOFT)
 		d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(d)
 		if not got:
@@ -92,6 +92,7 @@ func _ready() -> void:
 		list.add_child(p)
 		UI.pop_in(p, 0.03 * i, 0.9)
 		i += 1
+	UI.pass_drags(list)
 
 
 func back() -> void:

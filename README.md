@@ -2,6 +2,12 @@
 
 Jeu de logigrammes (énigmes de logique à grille) pour Android, jouable entièrement hors ligne.
 
+> ## 📲 [Télécharger l'APK Android (2.7.0)](https://github.com/alexandrerodenas/logigramme-/raw/main/apk/logigramme-2.7.0.apk)
+> Ouvre le lien depuis ton téléphone, puis autorise l'installation d'applications inconnues quand Android le demande.
+> Détails dans [Installer l'APK](#installer-lapk).
+
+Le jeu est disponible en **français** et en **anglais** (Réglages, roue dentée, puis *Langue*).
+
 Chaque grille est générée sur le téléphone à partir de son numéro de niveau : pas de serveur,
 pas de téléchargement, pas de permission Internet. Chaque grille générée a une solution unique,
 vérifiée par un solveur avant d'être proposée.
@@ -37,9 +43,11 @@ vérifiée par un solveur avant d'être proposée.
 
 ## Installer l'APK
 
-[Télécharger logigramme-2.6.0.apk](https://github.com/alexandrerodenas/logigramme-/raw/main/apk/logigramme-2.6.0.apk)
+[Télécharger logigramme-2.7.0.apk](https://github.com/alexandrerodenas/logigramme-/raw/main/apk/logigramme-2.7.0.apk)
 (dossier `apk/` du dépôt) depuis le téléphone, l'ouvrir, puis autoriser l'installation
 d'applications depuis cette source quand Android le demande.
+
+La 2.7.0 est signée par une autre clé que la 2.6.0 : Android refuse la mise à jour par-dessus. Il faut désinstaller la 2.6.0 avant ; la progression enregistrée sur le téléphone est alors effacée.
 
 ## Structure
 
@@ -52,10 +60,11 @@ d'applications depuis cette source quand Android le demande.
 | `scripts/grid_view.gd` | Grille en escalier : dessin, animations, appuis, aides |
 | `scripts/screens/` | Accueil, parcours, partie et victoire, trophées |
 | `scripts/ui/` | Composants visuels, décors animés, pastilles de niveau |
+| `scripts/i18n/` | Langue de l'interface : `lang.gd` (choix et `t()`), `strings_en.gd` (traductions anglaises) |
 | `assets/` | Icônes Twemoji (CC BY 4.0) et police Fredoka (SIL OFL) |
 | `export_presets.cfg` | Préréglage d'export Android (sans Gradle, sans permission Internet) |
 | `tools/build_apk.sh` | Construit et signe l'APK |
-| `tools/test_generator.gd` | Vérifie l'unicité des solutions des 75 niveaux et le déterminisme |
+| `tools/test_generator.gd` | Vérifie l'unicité des solutions des 75 niveaux et le déterminisme (`LOGIGRAMME_LANG=en` pour les indices en anglais) |
 | `tools/shot_driver.gd` | Captures d'écran automatiques (variable `LOGIGRAMME_SHOTS`) |
 
 Moteur : Godot 4.3 (GDScript). Le projet s'ouvre tel quel dans l'éditeur Godot 4.3.

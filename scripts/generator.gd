@@ -95,11 +95,13 @@ func _make_names(n: int) -> Dictionary:
 	var names := _shuffled(Worlds.NAMES).slice(0, n)
 	names.sort()
 	var values: Array = []
+	var is_w := "is " if Lang.is_en() else "est "
+	var not_w := "is not " if Lang.is_en() else "n'est pas "
 	for i in names.size():
 		var nm: String = names[i]
-		values.append({"short": nm, "pred": "est " + nm, "neg": "n'est pas " + nm, "desc": nm, "name": true,
+		values.append({"short": nm, "pred": is_w + nm, "neg": not_w + nm, "desc": nm, "name": true,
 			"avatar": Worlds.AVATAR_COLORS[i % Worlds.AVATAR_COLORS.size()]})
-	return {"name": "Prénom", "icon": "detective", "values": values}
+	return {"name": Lang.t("Prénom"), "icon": "detective", "values": values}
 
 
 func _make_category(def: Dictionary, n: int) -> Dictionary:
@@ -108,8 +110,12 @@ func _make_category(def: Dictionary, n: int) -> Dictionary:
 	var values: Array = []
 	for i in idx:
 		var v: Array = def.values[i]
-		values.append({"icon": v[0], "short": v[1], "pred": v[2], "neg": v[3], "desc": "la personne qui " + v[2]})
-	return {"name": def.name, "icon": def.icon, "values": values}
+		values.append({"icon": v[0], "short": Lang.t(v[1]), "pred": Lang.t(v[2]), "neg": Lang.t(v[3]), "desc": _who() + Lang.t(v[2])})
+	return {"name": Lang.t(def.name), "icon": def.icon, "values": values}
+
+
+static func _who() -> String:
+	return "the person who " if Lang.is_en() else "la personne qui "
 
 
 ## Catégorie ordonnée : âges (plus jeune, écart d'années) ou numéros de rue (à gauche, à côté).
@@ -117,16 +123,25 @@ func _make_ordered(kind: String, n: int) -> Dictionary:
 	var values: Array = []
 	if kind == "street":
 		for i in n:
-			values.append({"short": "n°%d" % (i + 1), "pred": "habite au n°%d" % (i + 1), "neg": "n'habite pas au n°%d" % (i + 1),
-				"desc": "la personne du n°%d" % (i + 1), "num": str(i + 1), "num_color": "cfe7ff"})
-		return {"name": "Rue", "icon": "house", "values": values, "kind": "street", "step": 1}
+			var no := i + 1
+			if Lang.is_en():
+				values.append({"short": "no. %d" % no, "pred": "lives at no. %d" % no, "neg": "doesn't live at no. %d" % no,
+					"desc": "the person at no. %d" % no, "num": str(no), "num_color": "cfe7ff"})
+			else:
+				values.append({"short": "n°%d" % no, "pred": "habite au n°%d" % no, "neg": "n'habite pas au n°%d" % no,
+					"desc": "la personne du n°%d" % no, "num": str(no), "num_color": "cfe7ff"})
+		return {"name": Lang.t("Rue"), "icon": "house", "values": values, "kind": "street", "step": 1}
 	var step: int = [1, 2, 3, 5][rng.randi_range(0, 3)]
 	var base := rng.randi_range(8, 40)
 	for i in n:
 		var age := base + i * step
-		values.append({"short": "%d ans" % age, "pred": "a %d ans" % age, "neg": "n'a pas %d ans" % age,
-			"desc": "la personne de %d ans" % age, "num": str(age), "num_color": "ffe7a8"})
-	return {"name": "Âge", "icon": "hourglass", "values": values, "kind": "age", "step": step}
+		if Lang.is_en():
+			values.append({"short": "%d years old" % age, "pred": "is %d years old" % age, "neg": "isn't %d years old" % age,
+				"desc": "the person aged %d" % age, "num": str(age), "num_color": "ffe7a8"})
+		else:
+			values.append({"short": "%d ans" % age, "pred": "a %d ans" % age, "neg": "n'a pas %d ans" % age,
+				"desc": "la personne de %d ans" % age, "num": str(age), "num_color": "ffe7a8"})
+	return {"name": Lang.t("Âge"), "icon": "hourglass", "values": values, "kind": "age", "step": step}
 
 
 # --- Indices ------------------------------------------------------------------
@@ -247,7 +262,48 @@ static func _de(s: String) -> String:
 	return "d'" + s if _vowel(s) else "de " + s
 
 
+## Texte d'un indice dans la langue active (fixé à la génération, comme la structure).
 func _clue_text(pz: Dictionary, cl: Dictionary) -> String:
+	return _clue_text_en(pz, cl) if Lang.is_en() else _clue_text_fr(pz, cl)
+
+
+func _clue_text_en(pz: Dictionary, cl: Dictionary) -> String:
+	var a := _val(pz, cl.a)
+	var b := _val(pz, cl.b)
+	match int(cl.type):
+		ClueType.SAME:
+			return _cap(a.desc) + " " + b.pred + "."
+		ClueType.DIFF:
+			return _cap(a.desc) + " " + b.neg + "."
+		ClueType.EITHER:
+			var c := _val(pz, cl.c)
+			if b.has("name"):
+				return _cap(a.desc) + " is " + b.desc + " or " + c.desc + "."
+			return _cap(a.desc) + " " + b.pred + " or " + c.pred + "."
+		ClueType.PAIR:
+			var c := _val(pz, cl.c)
+			var e := _val(pz, cl.e)
+			return "Among %s and %s, one %s and the other %s." % [a.desc, b.desc, c.pred, e.pred]
+	var street: bool = pz.cats[cl.g].kind == "street"
+	match int(cl.type):
+		ClueType.YOUNGER:
+			if street:
+				return _cap(a.desc) + " lives to the left of " + b.desc + "."
+			return _cap(a.desc) + " is younger than " + b.desc + "."
+		ClueType.EXACT:
+			if street:
+				if int(cl.d) == 1:
+					return _cap(a.desc) + " lives just to the right of " + b.desc + "."
+				return _cap(a.desc) + " lives %d houses to the right of " % int(cl.d) + b.desc + "."
+			var years: int = int(cl.d) * int(pz.cats[cl.g].step)
+			var unit := "year" if years == 1 else "years"
+			return _cap(a.desc) + " is exactly %d %s older than " % [years, unit] + b.desc + "."
+		ClueType.NEXT:
+			return _cap(a.desc) + " lives next to " + b.desc + "."
+	return ""
+
+
+func _clue_text_fr(pz: Dictionary, cl: Dictionary) -> String:
 	var a := _val(pz, cl.a)
 	var b := _val(pz, cl.b)
 	match int(cl.type):
